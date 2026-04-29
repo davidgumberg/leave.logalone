@@ -20,6 +20,7 @@ LOG_FUNCS = {
     'LogPrintFormatInternal'
 }
 
+
 def print_ast(node: ci.Cursor, indent=0):
     prefix = "  " * indent
     print(
@@ -29,6 +30,7 @@ def print_ast(node: ci.Cursor, indent=0):
     # Recurse
     for child in node.get_children():
         print_ast(child, indent + 2)
+
 
 @dataclass(frozen=True, slots=True)
 class LogMessage:
@@ -55,6 +57,7 @@ def fmt_to_regex(fmt_str):
 
 def toks_to_str(arg: list[ci.Token]) -> str:
     return "".join(tok.spelling for tok in arg)
+
 
 # Unfortunately have to parse macro args ourselves since clang won't do it :(
 # there is probably a better way to do this using the args to
@@ -157,7 +160,6 @@ def process_log(node: ci.Cursor, root_dir: str) -> LogMessage:
     loc = node.location
     file_name = Path(loc.file.name).relative_to(root_dir)
 
-
     return LogMessage(
         fmt=fmt_str,
         regex=regex,
@@ -172,8 +174,11 @@ def process_log(node: ci.Cursor, root_dir: str) -> LogMessage:
 
 
 def parse_file(
-    filename: str, args: list[str], root_dir: str, index: Optional[ci.Index] = None
-    ) -> list[LogMessage]:
+    filename: str,
+    args: list[str],
+    root_dir: str,
+    index: Optional[ci.Index] = None
+) -> list[LogMessage]:
     """
     Parse file into LogMessages, optionally reuses an existing index if the
     caller has one.
@@ -263,7 +268,7 @@ class LogCompiler:
         print(f"Parsing {filename}...")
         filename = Path(filename)
         cmds = self.cdb.getCompileCommands(filename)
-        if cmds is None:
+        if cmds is None or len(cmds) <= 0:
             raise ArgumentError(f"{filename} not found in compilation database!")
 
         # We only want the first one if multiple exist.
