@@ -173,6 +173,22 @@ def process_log(node: ci.Cursor, root_dir: str) -> LogMessage:
     )
 
 
+def visit_node(node: ci.Cursor, root_dir: str, results: list[LogMessage]):
+    if node.location.file:
+        fname = node.location.file.name
+        # skip files outside of our dir
+        if not fname.startswith(root_dir):
+            return
+
+    if node.kind == ci.CursorKind.MACRO_INSTANTIATION:
+        if node.spelling in LOG_FUNCS:
+            results.append(process_log(node, root_dir))
+
+    # Recurse
+    for child in node.get_children():
+        visit_node(child, root_dir, results)
+
+
 def parse_file(
     filename: str,
     args: list[str],
@@ -183,20 +199,6 @@ def parse_file(
     Parse file into LogMessages, optionally reuses an existing index if the
     caller has one.
     """
-    def visit_node(node: ci.Cursor, root_dir: str, results: list[LogMessage]):
-        if node.location.file:
-            fname = node.location.file.name
-            # skip files outside of our dir
-            if not fname.startswith(root_dir):
-                return
-
-        if node.kind == ci.CursorKind.MACRO_INSTANTIATION:
-            if node.spelling in LOG_FUNCS:
-                results.append(process_log(node, root_dir))
-
-        # Recurse
-        for child in node.get_children():
-            visit_node(child, root_dir, results)
 
     results: list[LogMessage] = []
 
