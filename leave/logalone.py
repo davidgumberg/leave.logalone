@@ -30,18 +30,9 @@ def fmt_to_regex(fmt_str):
 # Global that will be initialized once in each process
 _PROCESS_LOCAL_INDEX = None
 
-
-def worker_init():
+def parse_file_with_global_index(filename: str, args: list[str], root_dir: str):
     """
-    Called once per process to init the global per-process index.
-    """
-    global _PROCESS_LOCAL_INDEX
-    _PROCESS_LOCAL_INDEX = ci.Index.create()
-
-
-def worker_entrypoint(filename: str, args: list[str], root_dir: str):
-    """
-    Wrapper that initializes / retrieves the global _PROCESS_LOCAL_INDEX and
+    Wrapper that initializes / retrieves the python global _PROCESS_LOCAL_INDEX and
     invokes parse_file.
     """
     global _PROCESS_LOCAL_INDEX
@@ -257,8 +248,7 @@ class LogDB:
         clean.append('-fsyntax-only')
         return clean
 
-
-    def parse(self, root_dir:str, filename=None):
+    def parse(self, root_dir: str, filename: str = None):
         root_dir = Path(root_dir)
         build_dir = root_dir / "build"
         compile_commands_path = build_dir / "compile_commands.json"
@@ -327,11 +317,10 @@ class LogDB:
         workers = os.cpu_count()
         with ProcessPoolExecutor(
             max_workers=workers,
-            initializer=worker_init
         ) as executor:
             # Submit all tasks
             futures = {
-                executor.submit(worker_entrypoint, f, a, r): f
+                executor.submit(parse_file_with_global_index, f, a, r): f
                 for f, a, r in tasks
             }
 
