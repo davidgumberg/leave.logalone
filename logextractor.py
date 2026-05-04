@@ -152,7 +152,7 @@ def process_log(parse_result: ParseResult, root_dir: str) -> LogMessage:
     else:
         category = "BCLog::ALL"
 
-    if not args[idx].startswith('"') and args[idx].endswith('"'):
+    if not (args[idx].startswith('"') and args[idx].endswith('"')):
         # The format string is not a literal, probably not worth handling this
         print(f"Format string is not a literal, skipped: `{args[idx]}`")
 
