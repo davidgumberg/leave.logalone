@@ -107,7 +107,7 @@ def parse_tokens(tu: TranslationUnit, root_dir: str) -> list[LogMessage]:
     parse_state = ParseState()
     parse_result = None
 
-    if tu.cursor or tu.cursor.extent is None:
+    if not tu.cursor or tu.cursor.extent is None:
         return []
     for token in tu.get_tokens(extent=tu.cursor.extent):
         tk = token.spelling
