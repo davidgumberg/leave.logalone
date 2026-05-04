@@ -164,12 +164,24 @@ def process_log(parse_result: ParseResult, root_dir: str) -> LogMessage:
     else:
         category = "BCLog::ALL"
 
-    fmt_str = args[idx]
-    if fmt_str.startswith('"') and fmt_str.endswith('"'):
-        fmt_str = fmt_str[1:-1]
-    else:
+    if not args[idx].startswith('"') and args[idx].endswith('"'):
         # The format string is not a literal, probably not worth handling this
-        print(f"Format string is not a literal, skipped: `{fmt_str}`")
+        print(f"Format string is not a literal, skipped: `{args[idx]}`")
+
+    fmt_str = ""
+    escaped = False
+    for char in args[idx]:
+        if not escaped and char == '\"':
+            escaped = False
+            continue
+
+        if char == "\\":
+            if escaped:
+                escaped = False
+            else:
+                escaped = True
+
+        fmt_str += char
 
     # on second thought, store the fmt strings in the text file,
     # the log parser can compile to regex's at load time?
