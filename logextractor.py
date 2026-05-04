@@ -33,6 +33,9 @@ def fmt_to_regex(fmt_str):
     for the python scanf package's scanf_compile.
     """
 
+    # todo: in tinyfmt specifiers are meaningless, but scanf_compile generates
+    # patterns based on them, write a simple replacement utility that maps all
+    # specifiers to `.*`.
     return scanf_compile(fmt_str, collapseWhitespace=False)
 
 

@@ -5,5 +5,11 @@ MAJOR.MINOR pip package for your clang library package
 
 ### LLM disclosure
 
-I used LLM's heavily (in chat format) while working on this, but I've touched
-most and reviewed every line of code in this repo.
+I used LLM's heavily (in chat format) to build the first draft of this since a
+great deal of the libclang python interface seems undocumented or expects
+familiarity with the c interface.
+
+I've reviewed every line of code in this repo and most of it has been rewritten
+since the first draft.
+
+
