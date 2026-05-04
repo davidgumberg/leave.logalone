@@ -14,18 +14,6 @@ from scanf import scanf_compile
 import clang.cindex as ci
 from clang.cindex import CompilationDatabase, CompilationDatabaseError, TranslationUnit
 
-
-def print_ast(node: ci.Cursor, indent=0):
-    prefix = "  " * indent
-    print(
-        f"{prefix}{node.kind} : '{node.spelling}' "
-        f"(Ref: '{node.referenced.spelling if node.referenced else 'None'}')")
-
-    # Recurse
-    for child in node.get_children():
-        print_ast(child, indent + 2)
-
-
 def fmt_to_regex(fmt_str):
     """
     Converts a printf/scanf string to a Python Regex.
