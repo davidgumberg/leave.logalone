@@ -12,7 +12,12 @@ from typing import Optional
 from scanf import scanf_compile
 
 import clang.cindex as ci
-from clang.cindex import CompilationDatabase, CompilationDatabaseError, TranslationUnit
+from clang.cindex import (
+    CompilationDatabase,
+    CompilationDatabaseError,
+    TranslationUnit
+)
+
 
 def fmt_to_regex(fmt_str):
     """
@@ -29,6 +34,7 @@ def fmt_to_regex(fmt_str):
 
 # Global that will be initialized once in each process
 _PROCESS_LOCAL_INDEX = None
+
 
 def parse_file_with_global_index(filename: str, args: list[str], root_dir: str):
     """
