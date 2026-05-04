@@ -350,9 +350,14 @@ class LogDB:
         with open(out_file, 'w') as f:
             json.dump(serialisable, f, indent=2)
 
+    def load_from_file(self, in_file):
+        with open(in_file, 'r') as f:
+            data = json.load(f)
+            self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]
+
 
 if __name__ == "__main__":
-    if len(sys.argv) not in [3, 4]:
+    if len(sys.argv) not in [2, 3, 4]:
         print(
             "Usage!!! logextractor.py {src_dir} {out_path}\n"
             "Or!!! logextractor.py {src_dir} {file} {out_path}\n"
@@ -364,3 +369,4 @@ if __name__ == "__main__":
         compiler.parse(sys.argv[1])
     elif len(sys.argv) == 4:
         compiler.parse(sys.argv[1], sys.argv[2])
+    compiler.dump_to_file(sys.argv[-1])
