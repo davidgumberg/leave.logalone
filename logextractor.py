@@ -249,7 +249,7 @@ class LogExtractor:
         self.log_messages: list[LogMessage] = []
 
     @staticmethod
-    def clean_args(args):
+    def _clean_args(args):
         arglist = list(args)[1:]
         clean = []
         skip_next = False
@@ -279,7 +279,7 @@ class LogExtractor:
             raise ArgumentError(f"{filename} not found in compilation database!")
 
         # We only want the first one if multiple exist.
-        args = LogExtractor.clean_args(cmds[0].arguments)
+        args = LogExtractor._clean_args(cmds[0].arguments)
 
         index = ci.Index.create()
         self.log_messages.extend(parse_file(str(filename), args, str(self.root_dir), index))
@@ -315,7 +315,7 @@ class LogExtractor:
             if any(src_path.is_relative_to(d) for d in exclude_dirs):
                 continue
             if src_path.suffix == ".cpp":
-                args = self.clean_args(cmd.arguments)
+                args = self._clean_args(cmd.arguments)
                 tasks.append((src_path, args, str(self.root_dir)))
 
         print(f"Parsing {len(tasks)} files using {os.cpu_count()} threads...")
