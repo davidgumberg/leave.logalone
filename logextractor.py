@@ -227,7 +227,7 @@ def parse_file(
     return parse_tokens(tu, root_dir)
 
 
-class LogCompiler:
+class LogExtractor:
     def __init__(self, root_dir):
         self.root_dir = Path(root_dir)
         self.build_dir = self.root_dir / "build"
@@ -279,7 +279,7 @@ class LogCompiler:
             raise ArgumentError(f"{filename} not found in compilation database!")
 
         # We only want the first one if multiple exist.
-        args = LogCompiler.clean_args(cmds[0].arguments)
+        args = LogExtractor.clean_args(cmds[0].arguments)
 
         index = ci.Index.create()
         self.log_messages.extend(parse_file(str(filename), args, str(self.root_dir), index))
@@ -355,7 +355,7 @@ if __name__ == "__main__":
             )
         sys.exit(-1)
 
-    compiler = LogCompiler(sys.argv[1])
+    compiler = LogExtractor(sys.argv[1])
     if len(sys.argv) == 3:
         compiler.parse_all()
     elif len(sys.argv) == 4:
