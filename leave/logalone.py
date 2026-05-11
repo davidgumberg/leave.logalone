@@ -1,4 +1,3 @@
-import codecs
 import json
 import os
 import re
@@ -10,8 +9,6 @@ from ctypes import ArgumentError
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
-
-from scanf import scanf_compile
 
 import clang.cindex as ci
 from clang.cindex import (
@@ -48,12 +45,6 @@ def fmt_to_regex(fmt_str: str, arg_names: Optional[list[str]] = None):
             pattern = pattern.replace(r'(.*)', f'(?P<{arg}>.*)', 1)
 
     return re.compile(pattern), []
-
-    # todo: in tinyfmt specifiers are meaningless, but scanf_compile generates
-    # patterns based on them, write a simple replacement utility that maps all
-    # specifiers to `.*`.
-    #return scanf_compile(fmt_str, collapseWhitespace=False)
-
 
 # Global that will be initialized once in each process
 _PROCESS_LOCAL_INDEX = None
