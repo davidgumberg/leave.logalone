@@ -373,7 +373,7 @@ if __name__ == "__main__":
         "requested_size"
     ]
         
-    print(fmt_to_regex(example_string, argnames)[0])
+    print(fmt_to_regex(example_string, argnames))
     if len(sys.argv) not in [2, 3, 4]:
         print(
             "Usage!!! logextractor.py {src_dir} {out_path}\n"
