@@ -1,0 +1,356 @@
+import json
+import os
+import re
+import traceback
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from ctypes import ArgumentError
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Optional
+
+import clang.cindex as ci
+from clang.cindex import (
+    CompilationDatabase,
+    CompilationDatabaseError,
+    TranslationUnit
+)
+
+
+def fmt_to_regex(fmt_str: str, arg_names: Optional[list[str]] = None) -> re.Pattern:
+    """
+    Converts a printf/scanf string to a Python Regex.
+    Returns the regex string and a list of inferred types, just a wrapper
+    for the python scanf package's scanf_compile.
+    """
+
+    # Strip the sometimes-trailing newline, FIXME but for now I think this
+    # is the only escape sequence used?
+    pattern = fmt_str.replace("\\n", "")
+    pattern = re.escape(pattern)
+
+    # temp to avoid matching %%
+    percent_placeholder = "___PERCENT_LITERAL___"
+    pattern = pattern.replace("%%", percent_placeholder)
+
+    # the pattern is pure slop, looks right if i squint right
+    specifier_pattern = r'%[-+0 #]*[\d\*]*(\.[\d\*]*)?[hljztL]*[diuoxXfFeEgGaAcspn]'
+
+    pattern = re.sub(specifier_pattern, r'(.*)', pattern)
+    pattern = pattern.replace(percent_placeholder, "%")
+
+    if arg_names:
+        for arg in arg_names:
+            pattern = pattern.replace(r'(.*)', f'(?P<{arg}>.*)', 1)
+
+    return re.compile(pattern)
+
+
+# Global that will be initialized once in each process
+_PROCESS_LOCAL_INDEX = None
+
+
+def parse_file_with_global_index(filename: str, args: list[str], root_dir: str):
+    """
+    Wrapper that initializes / retrieves the python global _PROCESS_LOCAL_INDEX and
+    invokes parse_file.
+    """
+    global _PROCESS_LOCAL_INDEX
+    if _PROCESS_LOCAL_INDEX is None:
+        _PROCESS_LOCAL_INDEX = ci.Index.create()
+
+    return parse_file(filename, args, root_dir, _PROCESS_LOCAL_INDEX)
+
+
+# Todo: handle other weird cases!
+LOG_FUNCS = {
+    'LogDebug', 'LogTrace',
+    'LogPrintf',
+    'LogInfo', 'LogError', 'LogWarning',
+    'LogPrintFormatInternal'
+}
+
+
+@dataclass(frozen=True, slots=True)
+class LogMessage:
+    fmt: str                # the format string (without surrounding quotes)
+    regex: str              # regex string for the fmt
+    source_args: list[str]  # Arguments passed to the print
+    file: Optional[str]     # source file name (None for built‑ins)
+    line: int               # line number of the macro call
+    column: int             # column number of the macro call
+    macro: str              # which Log* macro was used
+    category: Optional[str] # optional category argument
+
+
+@dataclass
+class ParseResult:
+    macro: str
+    args: list[str]
+    loc: ci.SourceLocation
+
+
+# Parse the tokens of a tu into ParseResults, each of which is passed to
+# process_log to create a LogMessage object from.
+def parse_tokens(tu: TranslationUnit, root_dir: str) -> list[LogMessage]:
+    results: list[LogMessage] = []
+    # skip files outside of our dir
+    if not tu.spelling.startswith(root_dir):
+        return []
+
+    @dataclass
+    class ParseState:
+        in_log: bool = False
+        seen_open_paren: bool = False
+        current_arg: str = ""
+        paren_depth: int = 0
+
+    parse_state = ParseState()
+    parse_result = None
+
+    if not tu.cursor or tu.cursor.extent is None:
+        return []
+    for token in tu.get_tokens(extent=tu.cursor.extent):
+        tk = token.spelling
+
+        if tk in LOG_FUNCS:
+            parse_state.in_log = True
+            parse_result = ParseResult(macro=tk, args=[], loc=token.location)
+            continue
+
+        if not parse_state.in_log:
+            continue
+
+        assert parse_result is not None
+
+        if tk == "(":
+            if not parse_state.seen_open_paren:
+                parse_state.seen_open_paren = True
+                continue
+            parse_state.paren_depth += 1
+            parse_state.current_arg += tk
+        elif tk == "," and parse_state.paren_depth == 0:
+            parse_result.args.append(parse_state.current_arg)
+            parse_state.current_arg = ""
+        elif tk == ")":
+            if parse_state.paren_depth == 0:
+                parse_result.args.append(parse_state.current_arg)
+                results.append(process_log(parse_result, root_dir))
+                parse_state = ParseState()
+            else:
+                parse_state.paren_depth -= 1
+                parse_state.current_arg += tk
+        else:
+            parse_state.current_arg += tk
+
+    return results
+
+
+# Turn a ParseResult (macro, args, sourcelocation) into a LogMessage
+def process_log(parse_result: ParseResult, root_dir: str) -> LogMessage:
+    macro = parse_result.macro
+    source_args = parse_result.args
+    loc = parse_result.loc
+
+    category: Optional[str] = None
+
+    idx = 0
+    if macro in ("LogDebug", "LogTrace"):
+        # First arg is category
+        category = source_args[idx]
+        idx += 1
+    else:
+        category = "BCLog::ALL"
+
+    if not (source_args[idx].startswith('"') and source_args[idx].endswith('"')):
+        # The format string is not a literal, probably not worth handling this
+        print(f"Format string is not a literal, skipped: `{source_args[idx]}`")
+
+    fmt_str = ""
+    escaped = False
+    for char in source_args[idx]:
+        if not escaped and char == '\"':
+            escaped = False
+            continue
+
+        if char == "\\":
+            if escaped:
+                escaped = False
+            else:
+                escaped = True
+
+        fmt_str += char
+
+    # on second thought, store the fmt strings in the text file,
+    # the log parser can compile to regex's at load time?
+    regex = fmt_to_regex(fmt_str)
+    regex = regex.pattern
+
+    passed_arguments: list[str] = source_args[idx+1:]
+
+    file_name = Path(loc.file.name).relative_to(root_dir)
+
+    return LogMessage(
+        fmt=fmt_str,
+        regex=regex,
+        source_args=passed_arguments,
+        file=str(file_name),
+        line=loc.line,
+        column=loc.column,
+        macro=macro,
+        category=category,
+    )
+
+
+def parse_file(
+    filename: str,
+    args: list[str],
+    root_dir: str,
+    index: Optional[ci.Index] = None
+) -> list[LogMessage]:
+    """
+    Parse file into LogMessages, optionally reuses an existing index if the
+    caller has one.
+    """
+
+    if not index:
+        index = ci.Index.create()
+
+    try:
+        tu = index.parse(
+            str(filename),
+            args=args,
+            options=ci.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
+        )
+    except ci.TranslationUnitLoadError as e:
+        print(f"Error parsing {filename}: {e}")
+        print(f"Using args: {" ".join(args)}")
+        return []
+
+    assert isinstance(tu.cursor, ci.Cursor)
+
+    return parse_tokens(tu, root_dir)
+
+
+class LogDB:
+    def __init__(self):
+        self.log_messages: list[LogMessage] = []
+
+    @staticmethod
+    def _clean_args(args):
+        arglist = list(args)[1:]
+        clean = []
+        skip_next = False
+
+        for a in arglist:
+            # stop parsing at -- {filename.cpp}
+            if a == '--':
+                break
+            elif skip_next:
+                skip_next = False
+                continue
+            # These break everything for some reason
+            elif a == '-c':
+                skip_next = True
+                continue
+            clean.append(a)
+
+        # Maybe speeds things up?
+        clean.append('-fsyntax-only')
+        return clean
+
+    def parse(self, root_dir: str, filename: Optional[str] = None):
+        root_dir_path = Path(root_dir)
+        build_dir = root_dir_path / "build"
+        compile_commands_path = build_dir / "compile_commands.json"
+        if not compile_commands_path.is_file():
+            raise ArgumentError(
+                f"Expected to find {compile_commands_path.absolute()} but "
+                f"didn't. Check that {build_dir.absolute()} exists, you "
+                "are building with clang, and that "
+                "CMAKE_EXPORT_COMPILE_COMMANDS=ON")
+
+        try:
+            cdb = CompilationDatabase.fromDirectory(build_dir)
+        except CompilationDatabaseError:
+            raise ArgumentError(
+                f"Error: something went wrong loading {compile_commands_path}")
+
+        if filename is not None:
+            print(f"Parsing {filename}...")
+            filename_path = Path(filename)
+            cmds = cdb.getCompileCommands(filename_path)
+            if cmds is None or len(cmds) <= 0:
+                raise ArgumentError(f"{filename} not found in compilation database!")
+
+            # We only want the first one if multiple exist.
+            args = LogDB._clean_args(cmds[0].arguments)
+
+            index = ci.Index.create()
+            self.log_messages.extend(parse_file(str(filename), args, str(root_dir_path), index))
+            return
+
+        exclude_dirs = [
+            # No debug.log messages live in these places!
+            root_dir_path / "src" / "bench",
+            root_dir_path / "src" / "test",
+            root_dir_path / "src" / "ipc" / "test",
+            root_dir_path / "src" / "qt" / "test",
+            root_dir_path / "src" / "wallet" / "test",
+            # autogenerated stuff
+            root_dir_path / "build",
+        ]
+
+        exclude_dirs = [p.resolve() for p in exclude_dirs]
+
+        all_cmds = cdb.getAllCompileCommands()
+        if all_cmds is None:
+            raise AssertionError
+
+        seen: set[Path] = set()
+        tasks = []
+
+        for cmd in all_cmds:
+            src_path = Path(cmd.filename).resolve()
+
+            if src_path in seen:
+                continue
+
+            seen.add(src_path)
+            if any(src_path.is_relative_to(d) for d in exclude_dirs):
+                continue
+            if src_path.suffix == ".cpp":
+                args = self._clean_args(cmd.arguments)
+                tasks.append((src_path, args, str(root_dir_path)))
+
+        print(f"Parsing {len(tasks)} files using {os.cpu_count()} threads...")
+
+        workers = os.cpu_count()
+        with ProcessPoolExecutor(
+            max_workers=workers,
+        ) as executor:
+            # Submit all tasks
+            futures = {
+                executor.submit(parse_file_with_global_index, f, a, r): f
+                for f, a, r in tasks
+            }
+
+            # Watch for completion
+            for i, future in enumerate(as_completed(futures)):
+                try:
+                    self.log_messages.extend(future.result())
+                    print(f"Progress: {i}/{len(tasks)}", end='\r')
+                except Exception as e:
+                    print(f"\nTask failed: {e}")
+                    traceback.print_exc()
+
+    def dump_to_file(self, out_file):
+        serialisable = [asdict(m) for m in self.log_messages]
+
+        with open(out_file, 'w') as f:
+            json.dump(serialisable, f, indent=2)
+
+    def load_from_file(self, in_file):
+        with open(in_file, 'r') as f:
+            data = json.load(f)
+            self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]

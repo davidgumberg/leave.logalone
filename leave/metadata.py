@@ -198,6 +198,7 @@ class LogEntry:
             print(f"Wallet name: {self.metadata.wallet_name}")
         print(f"Body: {self.body}")
 
+
 def process_log_generator(
     filepath: str, 
     filter_func: Optional[Callable[[LogEntry], bool]] = None
@@ -211,6 +212,6 @@ def process_log_generator(
                 if filter_func is None or filter_func(entry):
                     yield entry
 
+
 def process_log(filepath: str) -> list[LogEntry]:
     return list(process_log_generator(filepath))
-
