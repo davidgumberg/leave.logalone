@@ -31,7 +31,7 @@ def fmt_to_regex(fmt_str: str, arg_names: Optional[list[str]] = None) -> re.Patt
 
     # Strip the sometimes-trailing newline, FIXME but for now I think this
     # is the only escape sequence used?
-    pattern = fmt_str.replace("\\n", "")
+    pattern = fmt_str.replace("\n", "")
     pattern = re.escape(pattern)
 
     # temp to avoid matching %%
