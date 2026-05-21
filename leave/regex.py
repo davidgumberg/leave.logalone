@@ -22,7 +22,7 @@ def regex_add_names(r: re.Pattern, names: list[str]) -> re.Pattern:
     return re.compile(pattern)
 
 
-def fmt_to_regex(fmt_str: str, arg_names: Optional[list[str]] = None) -> re.Pattern:
+def fmt_to_regex(fmt_str: str) -> re.Pattern:
     """
     Converts a printf/scanf string to a Python Regex.
     Returns the regex string and a list of inferred types, just a wrapper
@@ -43,9 +43,5 @@ def fmt_to_regex(fmt_str: str, arg_names: Optional[list[str]] = None) -> re.Patt
 
     pattern = re.sub(specifier_pattern, r'(.*)', pattern)
     pattern = pattern.replace(percent_placeholder, "%")
-
-    if arg_names:
-        for arg in arg_names:
-            pattern = pattern.replace(r'(.*)', f'(?P<{arg}>.*)', 1)
 
     return re.compile(pattern)
