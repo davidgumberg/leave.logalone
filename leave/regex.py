@@ -1,4 +1,3 @@
-from ctypes import ArgumentError
 import re
 
 
@@ -10,14 +9,17 @@ def regex_add_names(r: re.Pattern, names: list[str]) -> re.Pattern:
 
     pattern: str = r.pattern
 
-    anymatches = re.findall(pattern, r'(.*)')
+    anymatches = re.findall(r'\(\.\*\)', pattern)
     if len(anymatches) != len(names):
-        raise ArgumentError(f"regex_add_names was given {len(names)} names, "
-                            "to use for {len(anymatches)} matches of '(.*)' "
-                            "in pattern: {r.pattern}")
+        raise ValueError(f"regex_add_names passed a list of incorrect "
+                         f"length {len(names)}. Expected {len(anymatches)} "
+                         f"for pattern {r.pattern}!")
+
+    if len(names) != len(set(names)):
+        raise ValueError("regex_add_names must be given unique names!")
 
     for name in names:
-        pattern = pattern.replace(r'(.*)', f'(?P<{name}>.*', 1)
+        pattern = pattern.replace(r'(.*)', f'(?P<{name}>.*)', 1)
 
     return re.compile(pattern)
 
