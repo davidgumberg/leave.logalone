@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import traceback
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -15,10 +16,11 @@ from clang.cindex import (
     TranslationUnit
 )
 
-from .commands import get_commit_tmpdir
+from leave.commands import get_commit_tmpdir
 
 from .regex import (
-    fmt_to_regex
+    fmt_to_regex,
+    regex_add_names
 )
 
 
@@ -330,6 +332,12 @@ class LogDB:
         with open(in_file, 'r') as f:
             data = json.load(f)
             self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]
+
+    def msg_with_args(self, search: str, argnames: list[str]):
+        r = re.compile(search)
+        for msg in self.log_messages:
+            if r.match(msg.fmt) or r.match(msg.regex):
+                return regex_add_names(msg.regex, argnames)
 
 
 def CreateLogDBForHash(path: Path, hash: str) -> LogDB:
