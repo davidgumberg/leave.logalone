@@ -1,19 +1,17 @@
 import re
 
 
-def regex_add_names(r: re.Pattern, names: list[str]) -> re.Pattern:
+def regex_add_names(pattern: str, names: list[str]) -> re.Pattern:
     """
     Takes a regex and adds a list of names for all of the '(.*)' matches
     in the pattern.
     """
 
-    pattern: str = r.pattern
-
     anymatches = re.findall(r'\(\.\*\)', pattern)
     if len(anymatches) != len(names):
         raise ValueError(f"regex_add_names passed a list of incorrect "
                          f"length {len(names)}. Expected {len(anymatches)} "
-                         f"for pattern {r.pattern}!")
+                         f"for pattern {pattern}!")
 
     if len(names) != len(set(names)):
         raise ValueError("regex_add_names must be given unique names!")

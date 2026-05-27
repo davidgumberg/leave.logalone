@@ -15,11 +15,11 @@ EXAMPLE_LOG_MESSAGE = "2026-01-07T15:41:31.606100Z [cmpctblock] Peer 43 sent us 
 
 class TestRegex(unittest.TestCase):
     def test_fmt_to_regex(self):
-        pattern = fmt_to_regex(EXAMPLE_LOG_FMT)
-        self.assertRegex(EXAMPLE_LOG_MESSAGE, pattern)
+        r = fmt_to_regex(EXAMPLE_LOG_FMT)
+        self.assertRegex(EXAMPLE_LOG_MESSAGE, r)
 
     def test_regex_add_names(self):
-        pattern = fmt_to_regex(EXAMPLE_LOG_FMT)
+        r = fmt_to_regex(EXAMPLE_LOG_FMT)
 
         arg_list = [
             "peerid",
@@ -30,21 +30,21 @@ class TestRegex(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "incorrect length"):
             empty_list = []
-            regex_add_names(pattern, empty_list)
+            regex_add_names(r.pattern, empty_list)
 
         with self.assertRaisesRegex(ValueError, "incorrect length"):
             short_list = arg_list[:-1]
-            regex_add_names(pattern, short_list)
+            regex_add_names(r.pattern, short_list)
 
         with self.assertRaisesRegex(ValueError, "incorrect length"):
             long_list = arg_list + ["extra"]
-            regex_add_names(pattern, long_list)
+            regex_add_names(r.pattern, long_list)
 
         with self.assertRaisesRegex(ValueError, "unique"):
             duplicate_list = arg_list[:-1] + ["txn_count"]
-            regex_add_names(pattern, duplicate_list)
+            regex_add_names(r.pattern, duplicate_list)
 
-        named_pattern = regex_add_names(pattern, arg_list)
+        named_pattern = regex_add_names(r.pattern, arg_list)
         match = re.search(named_pattern, EXAMPLE_LOG_MESSAGE)
         print(named_pattern)
         self.assertIsNotNone(match)
