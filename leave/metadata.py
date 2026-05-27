@@ -164,7 +164,7 @@ class LogEntry:
                 thread = metadatum
             elif any(pattern.match(metadatum) for pattern in NUMEROUS_THREADNAME_PATTERNS):
                 thread = metadatum
-            elif sourcelocation_match := SOURCELOCATION_PATTERN.match(metadatum): # match filename pattern
+            elif sourcelocation_match := SOURCELOCATION_PATTERN.match(metadatum):  # match filename pattern
                 file = sourcelocation_match.group(1)
                 line_num = int(sourcelocation_match.group(2))
             elif FUNCTIONNAME_PATTERN.match(metadatum):
@@ -200,7 +200,7 @@ class LogEntry:
 
 
 def process_log_generator(
-    filepath: str, 
+    filepath: str,
     filter_func: Optional[Callable[[LogEntry], bool]] = None
 ) -> Generator[LogEntry, None, None]:
     """Generator that yields filtered log entries"""
