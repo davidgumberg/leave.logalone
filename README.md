@@ -22,11 +22,9 @@ python leave/logalone.py /Path/To/BitcoinCore strings.json
 
 ### LLM disclosure
 
-I used LLM's heavily to build the first draft of this since a great deal of the
-libclang python interface seems undocumented or expects familiarity with the c
-interface.
+I used LLM's heavily to build the first draft of the part of this code that
+interacts with libclang since much of the libclang python interface seems
+undocumented or expects familiarity with the c interface.
 
-I've since reviewed every line of code in this repo and most of it has been
-rewritten since the first draft.
-
-
+Every line of code in here, unless indicated otherwise, has been read and
+understood by me.
