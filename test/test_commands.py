@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 
 from leave.commands import (
+    commit_exists,
     is_git_folder
 )
 
@@ -20,8 +21,8 @@ class TestCommands(unittest.TestCase):
             # https://git-scm.com/docs/git#Documentation/git.txt-GITCEILINGDIRECTORIES
             with patch.dict(os.environ, {"GIT_CEILING_DIRECTORIES": topdir}):
                 # make a child directory
-                subdir = f"{topdir}/child"
-                granddir = f"{subdir}/grandchild"
+                subdir = Path(topdir) / "child"
+                granddir = Path(subdir) / "grandchild"
                 os.makedirs(granddir)
 
                 self.assertFalse(is_git_folder(subdir))
@@ -35,3 +36,38 @@ class TestCommands(unittest.TestCase):
 
                 self.assertTrue(is_git_folder(subdir))
                 self.assertTrue(is_git_folder(granddir))
+
+    def test_commit_exists(self):
+        with tempfile.TemporaryDirectory() as git_repo:
+            # All of this is setting up a simple git repo with a single commit.
+            subprocess.run(
+                ["git", "init"],
+                cwd=git_repo,
+                capture_output=True
+            )
+
+            subprocess.run(
+                ["touch", "world.txt"],
+                cwd=git_repo,
+                capture_output=True
+            )
+
+            subprocess.run(
+                ["git", "add", "world.txt"],
+                cwd=git_repo,
+                capture_output=True
+            )
+
+            subprocess.run(
+                ["git", "commit", "-m", "Init"],
+                cwd=git_repo,
+                capture_output=True
+            )
+
+            head = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=git_repo,
+                capture_output=True
+            ).stdout
+
+            self.assertTrue(commit_exists(Path(git_repo), head.decode()))
