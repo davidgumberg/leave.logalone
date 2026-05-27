@@ -209,7 +209,6 @@ def parse_file(
 
     return parse_tokens(tu, root_dir)
 
-
 class LogDB:
     def __init__(self):
         self.log_messages: list[LogMessage] = []
@@ -338,6 +337,7 @@ class LogDB:
         for msg in self.log_messages:
             if r.match(msg.fmt) or r.match(msg.regex):
                 return regex_add_names(msg.regex, argnames)
+
 
 
 def CreateLogDBForHash(path: Path, hash: str) -> LogDB:
