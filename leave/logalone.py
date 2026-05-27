@@ -11,11 +11,15 @@ from .db import (
 
 
 class LogPattern:
-    regex: re.Pattern
+    regex: str
+    # Exists strictly for performance reasons.
+    regex_nocapture: str
     callback: Callable[[], None]
 
-    def __init__(self, msg: LogMessage, argnames: Optional[list[str]]):
-        raise NotImplementedError
+    def __init__(self, regex: str, regex_nocapture: str, callback: Callable[[], None]):
+        self.regex = regex
+        self.regex_nocapture = regex_nocapture
+        self.callback = callback
 
 
 if __name__ == "__main__":
