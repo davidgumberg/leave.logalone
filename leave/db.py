@@ -7,7 +7,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from ctypes import ArgumentError
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import clang.cindex as ci
 from clang.cindex import (
@@ -16,8 +16,8 @@ from clang.cindex import (
     TranslationUnit
 )
 
-from leave.commands import get_commit_tmpdir
-
+from .logalone import LogPattern
+from .commands import get_commit_tmpdir
 from .regex import (
     fmt_to_regex,
     regex_add_names
@@ -332,11 +332,13 @@ class LogDB:
             data = json.load(f)
             self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]
 
-    def msg_with_args(self, search: str, argnames: list[str]):
+    def msg_with_args(self, search: str, argnames: list[str], callback: Callable[[], None]) -> LogPattern:
         r = re.compile(search)
         for msg in self.log_messages:
             if r.match(msg.fmt) or r.match(msg.regex):
-                return regex_add_names(msg.regex, argnames)
+                named_grouped_r = regex_add_names(msg.fmt, argnames)
+                return LogPattern(named_grouped_r, fmt_to_regex(msg.fmt, grouped=False), callback)
+        raise Exception(f"Pattern {search} not found in db!!!")
 
 
 

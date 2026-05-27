@@ -16,9 +16,19 @@ class LogPattern:
     regex_nocapture: str
     callback: Callable[[], None]
 
-    def __init__(self, regex: str, regex_nocapture: str, callback: Callable[[], None]):
-        self.regex = regex
-        self.regex_nocapture = regex_nocapture
+    def __init__(self, regex: str | re.Pattern, regex_nocapture: str | re.Pattern, callback: Callable[[], None]):
+        match regex:
+            case str():
+                self.regex = regex
+            case re.Pattern():
+                self.regex = regex.pattern
+
+        match regex_nocapture:
+            case str():
+                self.regex_nocapture = regex_nocapture
+            case re.Pattern():
+                self.regex_nocapture = regex_nocapture.pattern
+
         self.callback = callback
 
 
