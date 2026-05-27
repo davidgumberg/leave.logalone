@@ -15,10 +15,7 @@ from clang.cindex import (
     TranslationUnit
 )
 
-from .git import (
-    get_commit_tmpdij
-)
-from leave.commands import get_commit_tmpdir
+from .commands import get_commit_tmpdir
 
 from .regex import (
     fmt_to_regex
