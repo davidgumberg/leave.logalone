@@ -129,8 +129,8 @@ class LogEntry:
         try:
             time_str, remainder = logline.split(' ', 1)
         except ValueError:
-             print(f"Warning: Malformed logline: {logline}\n")
-             return
+            print(f"Warning: Malformed logline: {logline}\n")
+            return
 
         # we are going to use this to split the body from the metadata, this is
         # a lul trucky b/c the body may have brackets
