@@ -15,6 +15,11 @@ from clang.cindex import (
     TranslationUnit
 )
 
+from .git import (
+    get_commit_tmpdij
+)
+from leave.commands import get_commit_tmpdir
+
 from .regex import (
     fmt_to_regex
 )
@@ -328,3 +333,10 @@ class LogDB:
         with open(in_file, 'r') as f:
             data = json.load(f)
             self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]
+
+
+def CreateLogDBForHash(path: Path, hash: str) -> LogDB:
+    tmpdir = get_commit_tmpdir(path, hash)
+    db = LogDB()
+    db.parse(tmpdir.name)
+    return db
