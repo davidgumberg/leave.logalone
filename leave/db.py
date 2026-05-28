@@ -16,7 +16,8 @@ from clang.cindex import (
     TranslationUnit
 )
 
-from .logalone import LogPattern, LogPatternCallback
+from leave.metadata import LogEntry
+
 from .commands import get_commit_tmpdir
 from .regex import (
     fmt_to_regex,
@@ -347,3 +348,29 @@ def CreateLogDBForHash(path: Path, hash: str) -> LogDB:
     db = LogDB()
     db.parse(tmpdir.name)
     return db
+
+
+type LogPatternCallback = Callable[[LogEntry, dict], None]
+
+
+class LogPattern:
+    regex: str
+    # Exists strictly for performance reasons.
+    regex_nocapture: str
+    callback: LogPatternCallback
+
+    def __init__(self, regex: str | re.Pattern, regex_nocapture: str | re.Pattern, callback: LogPatternCallback):
+        match regex:
+            case str():
+                self.regex = regex
+            case re.Pattern():
+                self.regex = regex.pattern
+
+        match regex_nocapture:
+            case str():
+                self.regex_nocapture = regex_nocapture
+            case re.Pattern():
+                self.regex_nocapture = regex_nocapture.pattern
+
+        self.callback = callback
+
