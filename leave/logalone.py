@@ -2,21 +2,23 @@ import re
 import sys
 
 from collections.abc import Callable
-from typing import Optional
+
+from .metadata import LogEntry
 
 from .db import (
     LogDB,
-    LogMessage
 )
+
+type LogPatternCallback = Callable[[LogEntry, dict], None]
 
 
 class LogPattern:
     regex: str
     # Exists strictly for performance reasons.
     regex_nocapture: str
-    callback: Callable[[], None]
+    callback: LogPatternCallback
 
-    def __init__(self, regex: str | re.Pattern, regex_nocapture: str | re.Pattern, callback: Callable[[], None]):
+    def __init__(self, regex: str | re.Pattern, regex_nocapture: str | re.Pattern, callback: LogPatternCallback):
         match regex:
             case str():
                 self.regex = regex

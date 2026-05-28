@@ -16,7 +16,7 @@ from clang.cindex import (
     TranslationUnit
 )
 
-from .logalone import LogPattern
+from .logalone import LogPattern, LogPatternCallback
 from .commands import get_commit_tmpdir
 from .regex import (
     fmt_to_regex,
@@ -332,7 +332,7 @@ class LogDB:
             data = json.load(f)
             self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]
 
-    def msg_with_args(self, search: str, argnames: list[str], callback: Callable[[], None]) -> LogPattern:
+    def msg_with_args(self, search: str, argnames: list[str], callback: LogPatternCallback) -> LogPattern:
         r = re.compile(search)
         for msg in self.log_messages:
             if r.match(msg.fmt) or r.match(msg.regex):
