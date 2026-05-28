@@ -18,7 +18,7 @@ from clang.cindex import (
 
 from leave.metadata import LogEntry
 
-from .commands import get_commit_tmpdir
+from .commands import gen_compile_commands, get_commit_tmpdir
 from .regex import (
     fmt_to_regex,
     regex_add_names

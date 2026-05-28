@@ -51,3 +51,18 @@ def get_commit_tmpdir(repo: Path, hash: str) -> TemporaryDirectory:
     )
 
     return tmp_worktree
+
+
+def gen_compile_commands(path: Path) -> bool:
+    ret = subprocess.run(
+        [
+            "cmake", 
+            "-B", "build", 
+            "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+            "-DCMAKE_C_COMPILER=clang",
+            "-DCMAKE_CXX_COMPILER=clang++"
+        ],
+        cwd=path,
+        capture_output=True
+    )
+    return ret.returncode == 0
