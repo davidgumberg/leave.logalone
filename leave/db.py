@@ -337,14 +337,14 @@ class LogDB:
         r = re.compile(search)
         for msg in self.log_messages:
             if r.match(msg.fmt) or r.match(msg.regex):
-                named_grouped_r = regex_add_names(msg.fmt, argnames)
+                named_grouped_r = regex_add_names(msg.regex, argnames)
                 return LogPattern(named_grouped_r, fmt_to_regex(msg.fmt, grouped=False), callback)
         raise Exception(f"Pattern {search} not found in db!!!")
 
 
-
 def CreateLogDBForHash(path: Path, hash: str) -> LogDB:
     tmpdir = get_commit_tmpdir(path, hash)
+    gen_compile_commands(tmpdir.name)
     db = LogDB()
     db.parse(tmpdir.name)
     return db
