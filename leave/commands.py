@@ -67,3 +67,22 @@ def gen_compile_commands(path: Path) -> bool:
         capture_output=True
     )
     return ret.returncode == 0
+
+# Takes as input a list of filters and a file name, and does a ripgrep to get
+# matches, returns a list of strings.
+def rg_filter(match_filters: list[str], file: Path) -> list[str]:
+    print("Filtering logfile for the lines we care about.")
+    join_str = "|".join(match_filters)
+    ret = subprocess.run(
+        [
+            "rg",
+            join_str,
+            file.absolute()
+        ],
+        capture_output=True,
+        text=True
+    )
+    if ret.returncode != 0 and ret.returncode != 1:
+        raise RuntimeError(f"Error filtering logfile! {ret.stderr}")
+
+    return ret.stdout.splitlines()
