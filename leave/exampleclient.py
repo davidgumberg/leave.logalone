@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from leave.commands import rg_filter
+from leave.logpattern import LogPattern
 from leave.metadata import LogEntry
 
 from leave.db import (
@@ -40,8 +41,7 @@ if __name__ == "__main__":
         ],
         handler.gbt_callback
     )
-    print(gbt_pattern.regex_nocapture)
-    filter_patterns: list[str] = [gbt_pattern.regex_nocapture]
+    filter_patterns: list[LogPattern] = [gbt_pattern]
 
     filtered_lines = rg_filter(filter_patterns, Path(sys.argv[1]))
     print(filtered_lines)
