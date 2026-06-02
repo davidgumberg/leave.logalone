@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from leave.commands import rg_filter
-from leave.logpattern import LogPattern
+from leave.logpattern import LogPattern, leavelog
 from leave.metadata import LogEntry
 
 from leave.db import (
@@ -12,25 +12,23 @@ from leave.db import (
 
 
 REPO = Path.home() / "btc" / "bitcoin"
-HASH = "83df64d7491b"
-
 
 class CBHandler:
     def __init__(self):
         self.total_transaction_rq_count = 0
 
     def gbt_callback(self, _: LogEntry, dict: dict) -> None:
-        self.total_transaction_rq_count += dict["txn_count"]
+        self.total_transaction_rq_count += int(dict["txn_count"])
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage!!!!")
+    if len(sys.argv) != 3:
+        print("Usage!!!! [script.py] {debug.log} {commit-hash}")
         sys.exit(-1)
 
     handler = CBHandler()
     # todo, the db should really be an index of db's generating itself based on the logfile.
-    db = CreateLogDBForHash(REPO, HASH)
+    db = CreateLogDBForHash(REPO, sys.argv[2])
 
     # LogDebug(BCLog::CMPCTBLOCK, "Peer %d sent us a GETBLOCKTXN for block %s, sending a BLOCKTXN with %u txns. (%u bytes)\n", pfrom.GetId(), block.GetHash().ToString(), resp.txn.size(), tx_requested_size);
     # Should it be fuzzy or there be a fuzzy option instead of regex?
@@ -41,7 +39,6 @@ if __name__ == "__main__":
         ],
         handler.gbt_callback
     )
-    filter_patterns: list[LogPattern] = [gbt_pattern]
+    leavelog(Path(sys.argv[1]), [gbt_pattern])
 
-    filtered_lines = rg_filter(filter_patterns, Path(sys.argv[1]))
-    print(filtered_lines)
+    print(f"and at the end drumrol... {handler.total_transaction_rq_count}")
