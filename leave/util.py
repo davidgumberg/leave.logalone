@@ -9,16 +9,16 @@ def string_from_literals(string: str) -> str:
     in_literal = False
     for c in string:
         if escaped:
-            out.append(c)
             escaped = False
+            out.append(c)
             continue
 
         if c == '\\':
             escaped = True
+            out.append(c)
             continue
 
-        # We are not escaped at this point
-        if c == "\"":
+        if c == "\"" and not escaped:
             in_literal = not in_literal
             continue
 

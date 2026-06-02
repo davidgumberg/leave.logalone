@@ -1,3 +1,4 @@
+from re import escape
 import unittest
 
 from leave.util import (
@@ -7,7 +8,7 @@ from leave.util import (
 
 class TestStringUtils(unittest.TestCase):
     def test_join_string_literals(self):
-        literal1 = "String literal!"
+        literal1 = r"String literal! \n"
         single_literal = f"\"{literal1}\""
         self.assertEqual(string_from_literals(single_literal), literal1)
 
@@ -19,3 +20,8 @@ class TestStringUtils(unittest.TestCase):
         broken_multi_literal = f"\"{literal1}\" message between! forbideeen \"{literal2}\""
         with self.assertRaisesRegex(ValueError, "non whitespace characters"):
             string_from_literals(broken_multi_literal)
+
+        escaped_quotes_message = r'Unknown inv type \"%s\" received from peer=%d\n'
+        print(escaped_quotes_message)
+        escaped_quotes_literal = f"\"{escaped_quotes_message}\""
+        self.assertEqual(string_from_literals(escaped_quotes_literal), escaped_quotes_message)
