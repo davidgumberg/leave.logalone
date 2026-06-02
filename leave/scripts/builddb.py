@@ -1,9 +1,4 @@
-import re
 import sys
-
-from collections.abc import Callable
-
-from leave.metadata import LogEntry
 
 from leave.db import (
     LogDB,

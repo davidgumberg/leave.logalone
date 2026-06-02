@@ -9,7 +9,8 @@ type LogPatternCallback = Callable[[LogEntry, dict], None]
 
 class LogPattern:
     regex: str
-    # Exists strictly for performance reasons.
+    # Exists strictly for performance reasons. (todo: may not be true anymore
+    # since switching to ripgrep, check)
     regex_nocapture: str
     callback: LogPatternCallback
 
