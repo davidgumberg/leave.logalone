@@ -30,7 +30,7 @@ def fmt_to_regex(fmt_str: str, grouped: bool = True) -> re.Pattern:
 
     # Strip the sometimes-trailing newline, FIXME but for now I think this
     # is the only escape sequence used?
-    pattern = fmt_str.replace("\n", "")
+    pattern = fmt_str.replace(r"\n", "")
     pattern = re.escape(pattern)
 
     # temp to avoid matching %%
