@@ -17,6 +17,7 @@ from clang.cindex import (
 )
 
 from leave.metadata import LogEntry
+from leave.util import string_from_literals
 
 from .commands import gen_compile_commands, get_commit_tmpdir
 from .regex import (
@@ -114,7 +115,9 @@ def parse_tokens(tu: TranslationUnit, root_dir: str) -> list[LogMessage]:
         elif tk == ")":
             if parse_state.paren_depth == 0:
                 parse_result.args.append(parse_state.current_arg)
-                results.append(process_log(parse_result, root_dir))
+                res = process_log(parse_result, root_dir)
+                if res is not None:
+                    results.append(process_log(parse_result, root_dir))
                 parse_state = ParseState()
             else:
                 parse_state.paren_depth -= 1
@@ -126,7 +129,7 @@ def parse_tokens(tu: TranslationUnit, root_dir: str) -> list[LogMessage]:
 
 
 # Turn a ParseResult (macro, args, sourcelocation) into a LogMessage
-def process_log(parse_result: ParseResult, root_dir: str) -> LogMessage:
+def process_log(parse_result: ParseResult, root_dir: str) -> Optional[LogMessage]:
     macro = parse_result.macro
     source_args = parse_result.args
     loc = parse_result.loc
@@ -141,24 +144,13 @@ def process_log(parse_result: ParseResult, root_dir: str) -> LogMessage:
     else:
         category = "BCLog::ALL"
 
-    if not (source_args[idx].startswith('"') and source_args[idx].endswith('"')):
+    try:
+        fmt_str = string_from_literals(source_args[idx])
+    except ValueError:
         # The format string is not a literal, probably not worth handling this
         print(f"Format string is not a literal, skipped: `{source_args[idx]}`")
+        return None
 
-    fmt_str = ""
-    escaped = False
-    for char in source_args[idx]:
-        if not escaped and char == '\"':
-            escaped = False
-            continue
-
-        if char == "\\":
-            if escaped:
-                escaped = False
-            else:
-                escaped = True
-
-        fmt_str += char
 
     # on second thought, store the fmt strings in the text file,
     # the log parser can compile to regex's at load time?
