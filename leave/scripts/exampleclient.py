@@ -1,7 +1,7 @@
 import sys
 
 from pathlib import Path
-from leave.logpattern import leavelog
+from leave.logalone import isolate
 from leave.metadata import LogEntry
 from leave.db import (
     CreateLogDBForHash
@@ -36,6 +36,6 @@ if __name__ == "__main__":
         ],
         handler.gbt_callback
     )
-    leavelog(Path(sys.argv[1]), [gbt_pattern])
+    isolate(Path(sys.argv[1]), [gbt_pattern])
 
     print(f"... drumroll please... {handler.total_transaction_rq_count}")

@@ -71,7 +71,7 @@ def gen_compile_commands(path: Path) -> bool:
 # Takes as input a list of filters and a file name, and does a ripgrep to get
 # matches, returns a list of strings.
 def rg_filter(match_filters: list[str], file: Path) -> list[str]:
-    print("Filtering logfile for the lines we care about.")
+    print("Filtering logfile for the lines we care about...")
     join_str = "|".join(match_filters)
     ret = subprocess.run(
         [
