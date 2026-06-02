@@ -54,6 +54,7 @@ def get_commit_tmpdir(repo: Path, hash: str) -> TemporaryDirectory:
 
 
 def gen_compile_commands(path: Path) -> bool:
+    print("Generating compile_commands.json...")
     ret = subprocess.run(
         [
             "cmake", 
