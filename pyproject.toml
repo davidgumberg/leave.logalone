@@ -5,4 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "leave"
 version = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1"
+dependencies = [
+    "ripgrep~=15.1.0",
+    "clang~=21.1.7",
+    "python-dateutil~=2.9.0.post0"
+]
 
