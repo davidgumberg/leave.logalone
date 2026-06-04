@@ -1,9 +1,8 @@
 import dateutil.parser
 import re
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Generator, Optional
+from typing import Optional
 
 # todo: this should be generated in some way,
 # hint:
@@ -197,21 +196,3 @@ class LogEntry:
         if (self.metadata.wallet_name):
             print(f"Wallet name: {self.metadata.wallet_name}")
         print(f"Body: {self.body}")
-
-
-def process_log_generator(
-    filepath: str,
-    filter_func: Optional[Callable[[LogEntry], bool]] = None
-) -> Generator[LogEntry, None, None]:
-    """Generator that yields filtered log entries"""
-    with open(filepath, 'r', buffering=8192) as log:
-        for line in log:
-            line = line.strip()
-            if line:
-                entry = LogEntry(line)
-                if filter_func is None or filter_func(entry):
-                    yield entry
-
-
-def process_log(filepath: str) -> list[LogEntry]:
-    return list(process_log_generator(filepath))
