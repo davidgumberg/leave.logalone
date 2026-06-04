@@ -42,11 +42,15 @@ def get_commit_tmpdir(repo: Path, hash: str) -> TemporaryDirectory:
         raise Exception(f"{hash} not found in Upstream!")
 
     tmp_worktree = TemporaryDirectory()
-    subprocess.run(
-        ["git", "worktree", "add", tmp_worktree.name, hash],
+    res = subprocess.run(
+        ["git", "worktree", "add", "--detach",
+         tmp_worktree.name, hash],
         cwd=repo,
         capture_output=True
     )
+
+    if not res.returncode == 0:
+        raise Exception(f"Error creating temporary worktree! {res.stderr}")
 
     return tmp_worktree
 
