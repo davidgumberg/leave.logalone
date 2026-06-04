@@ -70,6 +70,15 @@ class CBHandler:
 
         self.blocks_received[blockhash] = block
 
+    # Relies on the assumption that blocks_received == blocks reconstructed,
+    # which holds for our observation prefill receiver.
+    def blocks_missing_count(self) -> int:
+        count = 0
+        for _, block in self.blocks_received.items():
+            if block.missing_count > 0:
+                count += 1
+        return count
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -91,3 +100,12 @@ if __name__ == "__main__":
     ]
 
     isolate(Path(sys.argv[1]), patterns)
+
+    missing = handler.blocks_missing_count()
+    total = len(handler.blocks_received)
+
+    success = total - missing
+
+    reco_pct = (success / total) * 100
+
+    print(f"{success}/{total} ({reco_pct:.2f}%) succeeded reconstruction without needing a GETBLOCKTXN roundtrip.")
