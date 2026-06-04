@@ -1,6 +1,4 @@
 import subprocess
-import os
-import sys
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -57,8 +55,8 @@ def gen_compile_commands(path: Path) -> bool:
     print("Generating compile_commands.json...")
     ret = subprocess.run(
         [
-            "cmake", 
-            "-B", "build", 
+            "cmake",
+            "-B", "build",
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             "-DCMAKE_C_COMPILER=clang",
             "-DCMAKE_CXX_COMPILER=clang++"
@@ -67,6 +65,7 @@ def gen_compile_commands(path: Path) -> bool:
         capture_output=True
     )
     return ret.returncode == 0
+
 
 # Takes as input a list of filters and a file name, and does a ripgrep to get
 # matches, returns a list of strings.
