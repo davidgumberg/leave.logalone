@@ -15,8 +15,9 @@ class CBHandler:
     def __init__(self):
         self.total_transaction_rq_count = 0
 
-    def gbt_callback(self, _: LogEntry, dict: dict) -> None:
-        self.total_transaction_rq_count += int(dict["txn_count"])
+    def gbt_callback(self, entry: LogEntry, peerid: str, blockhash: str,
+                     txn_count: str, txn_size: str) -> None:
+        self.total_transaction_rq_count += int(txn_count)
 
 
 if __name__ == "__main__":
@@ -29,11 +30,8 @@ if __name__ == "__main__":
     db = CreateLogDBForHash(REPO, sys.argv[2])
 
     # Should it be fuzzy or there be a fuzzy option instead of regex?
-    gbt_pattern = db.msg_with_args(
+    gbt_pattern = db.msg_cb(
         "Peer.*sent us a GETBLOCKTXN",
-        [
-            "peerid", "blockhash", "txn_count", "txn_size"
-        ],
         handler.gbt_callback
     )
     isolate(Path(sys.argv[1]), [gbt_pattern])

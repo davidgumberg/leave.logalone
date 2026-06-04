@@ -1,9 +1,11 @@
 import re
-from typing import Callable
+from typing import Any, Protocol
 
 from leave.metadata import LogEntry
 
-type LogPatternCallback = Callable[[LogEntry, dict], None]
+
+class LogPatternCallback(Protocol):
+    def __call__(self, entry: LogEntry, **kwargs: Any) -> None: ...
 
 
 class LogPattern:

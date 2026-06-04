@@ -18,5 +18,5 @@ def isolate(logfile: Path, logpatterns: list[LogPattern]):
             match = regex.search(line)
             if match:
                 entry = LogEntry(line)
-                pattern.callback(entry, match.groupdict())
+                pattern.callback(entry, **match.groupdict())
                 break

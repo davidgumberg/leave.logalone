@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import re
@@ -16,7 +17,7 @@ from clang.cindex import (
     TranslationUnit
 )
 
-from leave.logpattern import LogPattern
+from leave.logpattern import LogPattern, LogPatternCallback
 from leave.util import string_from_literals
 
 from .commands import gen_compile_commands, get_commit_tmpdir
@@ -325,7 +326,13 @@ class LogDB:
             data = json.load(f)
             self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]
 
-    def msg_with_args(self, search: str, argnames: list[str], callback: LogPatternCallback) -> LogPattern:
+    def msg_cb(self, search: str, callback: LogPatternCallback) -> LogPattern:
+        if not inspect.ismethod(callback):
+            raise ValueError(f"Callback {callback} must be bound to an instance.")
+
+        params = inspect.signature(callback).parameters
+        argnames = list(params)[1:]
+
         r = re.compile(search)
         for msg in self.log_messages:
             if r.match(msg.fmt) or r.match(msg.regex):
