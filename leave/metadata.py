@@ -99,11 +99,12 @@ class LogEntry:
         loglevel: Optional[str] = None
         wallet_name: Optional[str] = None
 
-    metadata: Metadata = Metadata()
-    body: str
-    # a dict containing the parsed variables of the log message.
-    data: dict
-    full_line: str
+    def __init__(self, line: str, eager: bool = True):
+        self.full_line = line
+        self.body = ""
+        self.metadata = self.Metadata()
+        if eager:
+            self.process_line_metadata()
 
     @staticmethod
     def split_time_str(line: str) -> tuple[str, str]:
@@ -133,10 +134,6 @@ class LogEntry:
 
         return self.metadata.time
 
-    def __init__(self, line: str, eager: bool = True):
-        self.full_line = line
-        if eager:
-            self.process_line_metadata()
 
     # The whole burger's here, this is needed in order to split the body from
     # metadata.
