@@ -172,7 +172,7 @@ class LogEntry:
             if logcategory_match is None:
                 raise ValueError(f"Didn't see a valid logcategory! {self.full_line}")
 
-        category = logcategory_match.group(1) 
+        category = logcategory_match.group(1)
         loglevel = logcategory_match.group(2)  # Will be None if no :loglevel part
 
         for metadatum in matches:
