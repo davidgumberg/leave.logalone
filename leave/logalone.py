@@ -10,8 +10,8 @@ from leave.metadata import LogEntry
 
 
 def isolate(logfile: Path, logpatterns: list[LogPattern],
-            start_date: Optional[datetime],
-            end_date: Optional[datetime]) -> None:
+            start_date: Optional[datetime] = None,
+            end_date: Optional[datetime] = None) -> None:
     filter_patterns: list[str] = [p.regex_nocapture for p in logpatterns]
     filtered_lines = rg_filter(filter_patterns, logfile)
 
@@ -22,6 +22,7 @@ def isolate(logfile: Path, logpatterns: list[LogPattern],
         if start_date and entry.time() < start_date:
             continue
         if end_date and entry.time() >= end_date:
+            # We assume (reasonably) that the lines are in order.
             break
 
         for regex, pattern in compiled_patterns:
