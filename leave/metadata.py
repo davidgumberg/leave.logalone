@@ -134,7 +134,7 @@ class LogEntry:
         return self.metadata.time
 
     def __init__(self, line: str, eager: bool = True):
-        self.line = line
+        self.full_line = line
         if eager:
             self.process_line_metadata()
 
