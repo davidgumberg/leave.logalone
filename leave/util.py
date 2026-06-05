@@ -1,3 +1,6 @@
+from datetime import timezone
+import dateutil
+
 # Takes multiple literals and turns them into a single literal, cannot handle
 # preprocessor macros in between literals, throws a ValueError if not a simple
 # case.
@@ -31,3 +34,10 @@ def string_from_literals(string: str) -> str:
     if in_literal:
         raise ValueError(f"Unclosed string literal in {string}")
     return "".join(out)
+
+def parse_datetime(date_str: str) -> datetime:
+    dt = dateutil.parser.parse(date_str)
+    if dt.tzinfo is None:
+        dt.replace(tzinfo=timezone.utc)
+    return dt
+

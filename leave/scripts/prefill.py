@@ -12,6 +12,7 @@ from leave.metadata import LogEntry
 from leave.db import (
     CreateLogDBForHash
 )
+from leave.util import parse_datetime
 
 
 REPO = Path.home() / "btc" / "bitcoin"
@@ -91,8 +92,8 @@ if __name__ == "__main__":
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     if len(sys.argv) == 5:
-        start_date = dateutil.parser.parse(sys.argv[3])
-        end_date = dateutil.parser.parse(sys.argv[3])
+        start_date = parse_datetime(sys.argv[3])
+        end_date = parse_datetime(sys.argv[4])
 
     handler = CBHandler()
     # todo, the db should really be an index of db's generating itself based on
