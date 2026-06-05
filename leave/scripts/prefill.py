@@ -1,6 +1,7 @@
-import datetime
+import dateutil
 import sys
 
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -19,8 +20,8 @@ REPO = Path.home() / "btc" / "bitcoin"
 @dataclass
 class BlockReceived:
     received_size: int = 0
-    time_received: Optional[datetime.datetime] = None
-    time_reconstructed: Optional[datetime.datetime] = None
+    time_received: Optional[datetime] = None
+    time_reconstructed: Optional[datetime] = None
     reconstruction_time_ns: float = 0.0
 
     prefill_count: int = 0
@@ -37,7 +38,7 @@ class BlockReceived:
 class BlockSent:
     block_received: BlockReceived
     peer_id: int
-    time_sent: Optional[datetime.datetime] = None
+    time_sent: Optional[datetime] = None
     send_size: int = 0
     tcp_window_size: int = 0
 
@@ -81,9 +82,17 @@ class CBHandler:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage!!!! [script.py] {debug.log} {commit-hash}")
+    if len(sys.argv) not in [3, 5]:
+        print("Usage!!!!")
+        print("prefill.py {debug.log} {commit-hash}")
+        print("or: prefill.py {debug.log} {commit-hash} {start-date} {end-date}")
         sys.exit(-1)
+
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    if len(sys.argv) == 5:
+        start_date = dateutil.parser.parse(sys.argv[3])
+        end_date = dateutil.parser.parse(sys.argv[3])
 
     handler = CBHandler()
     # todo, the db should really be an index of db's generating itself based on
@@ -99,7 +108,7 @@ if __name__ == "__main__":
         ),
     ]
 
-    isolate(Path(sys.argv[1]), patterns)
+    isolate(Path(sys.argv[1]), patterns, start_date, end_date)
 
     missing = handler.blocks_missing_count()
     total = len(handler.blocks_received)
