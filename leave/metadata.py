@@ -1,3 +1,4 @@
+from datetime import datetime
 import dateutil.parser
 import re
 
@@ -89,7 +90,7 @@ FUNCTIONNAME_PATTERN = re.compile(r'^(?:[a-zA-Z_][a-zA-Z0-9_]*|operator.+)$')
 class LogEntry:
     @dataclass
     class Metadata:
-        time_str: str
+        time: Optional[datetime] = None
         category: Optional[str] = None
         thread: Optional[str] = None
         file: Optional[str] = None
@@ -98,17 +99,44 @@ class LogEntry:
         loglevel: Optional[str] = None
         wallet_name: Optional[str] = None
 
-    metadata: Metadata
+    metadata: Metadata = Metadata()
     body: str
     # a dict containing the parsed variables of the log message.
     data: dict
+    full_line: str
 
-    def time(self):
-        return dateutil.parser.parse(self.metadata.time_str)
+    @staticmethod
+    def split_time_str(line: str) -> tuple[str, str]:
+        # Takes a logline and returns the time_str, remainder_str.
+        time_str, remainder = line.split(' ', 1)
+        return (time_str, remainder)
 
-    def __init__(self, line):
-        self.process_line_metadata(line)
-        # self.print_metadata()
+    @staticmethod
+    def split_logline(line: str) -> tuple[str, str, str]:
+        # Takes a logline and returns the time_str, metadata_str, body_str.
+        time_str, remainder = LogEntry.split_time_str(line)
+
+        # we are going to use this to split the body from the metadata, this is
+        # a lul trucky b/c the body may have brackets
+        metadata_pattern_matches = METADATA_PATTERN.match(remainder)
+        if metadata_pattern_matches is None:
+            raise ValueError(f"Couldn't tell the body from the head! {line}")
+        metadata_str = metadata_pattern_matches.group(1)
+        body_str = metadata_pattern_matches.group(2)
+
+        return time_str, metadata_str, body_str
+
+    def time(self) -> datetime:
+        if self.metadata.time is None:
+            time_str, _ = self.split_time_str(self.full_line)
+            self.metadata.time = dateutil.parser.parse(time_str)
+
+        return self.metadata.time
+
+    def __init__(self, line: str, eager: bool = True):
+        self.line = line
+        if eager:
+            self.process_line_metadata()
 
     # The whole burger's here, this is needed in order to split the body from
     # metadata.
@@ -116,7 +144,7 @@ class LogEntry:
     # inquire about metadata, so that we can return early if e.g. we're
     # filtering on category, just find a category and return, leave other
     # fields unpopulated.
-    def process_line_metadata(self, logline):
+    def process_line_metadata(self):
         thread = None
         file = None
         line_num = None
@@ -125,24 +153,13 @@ class LogEntry:
         category = None
         wallet_name = None
 
-        try:
-            time_str, remainder = logline.split(' ', 1)
-        except ValueError:
-            print(f"Warning: Malformed logline: {logline}\n")
-            return
+        _, metadata_str, body_str = self.split_logline(self.full_line)
+        self.body = body_str
 
-        # we are going to use this to split the body from the metadata, this is
-        # a lul trucky b/c the body may have brackets
-        metadata_pattern_matches = METADATA_PATTERN.match(remainder)
-        if metadata_pattern_matches is None:
-            raise ValueError(f"Couldn't tell the body from the head! {logline}")
-        metadata = metadata_pattern_matches.group(1)
-        self.body = metadata_pattern_matches.group(2)
-
-        matches = BRACKET_PATTERN.findall(metadata)
+        matches = BRACKET_PATTERN.findall(metadata_str)
         # some lines.. some lines just don't have any metadata
         if not matches:
-            self.metadata = self.Metadata(time_str=time_str)
+            self.metadata = self.Metadata(time=self.time())
             return
 
         right_side = matches.pop()
@@ -152,8 +169,8 @@ class LogEntry:
             wallet_name = right_side
             right_side = matches.pop()
             logcategory_match = LOGCATEGORY_PATTERN.match(right_side)
-            if logcategory_match == None:
-                raise ValueError(f"Didn't see a valid logcategory! {logline}")
+            if logcategory_match is None:
+                raise ValueError(f"Didn't see a valid logcategory! {self.full_line}")
 
         category = logcategory_match.group(1) 
         loglevel = logcategory_match.group(2)  # Will be None if no :loglevel part
@@ -169,10 +186,10 @@ class LogEntry:
             elif FUNCTIONNAME_PATTERN.match(metadatum):
                 function = metadatum
             else:
-                raise ValueError(f"Invalid metadatum!: {metadatum} in {logline}")
+                raise ValueError(f"Invalid metadatum!: {metadatum} in {self.full_line}")
 
         self.metadata = self.Metadata(
-            time_str=time_str,
+            time=self.time(),
             category=category,
             thread=thread,
             file=file,
