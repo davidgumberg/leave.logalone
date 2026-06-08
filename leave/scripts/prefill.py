@@ -33,6 +33,13 @@ class BlockReceived:
     missing_count: int = 0
     missing_size: int = 0
 
+    prefill_rd_count: int = 0
+    prefill_rd_size: int = 0
+    prefill_rd_from_mempool_count: int = 0
+    prefill_rd_from_mempool_size: int = 0
+    prefill_rd_from_extrapool_count: int = 0
+    prefill_rd_from_extrapool_size: int = 0
+
 
 @dataclass
 class BlockSent:
@@ -45,15 +52,22 @@ class BlockSent:
 
 class CBHandler:
     def __init__(self):
-        self.total_transaction_rq_count: int = 0
         self.blocks_sent: dict[str, BlockSent] = {}
         self.blocks_received: dict[str, BlockReceived] = {}
 
-    def reco_callback(self, entry: LogEntry, blockhash: str,
-                      prefill_count: str, prefill_size: str,
-                      mempool_count: str, mempool_size: str,
-                      extra_count: str, extra_size: str,
-                      missing_count: str, missing_size: str) -> None:
+        self.current_block: Optional[BlockReceived] = None
+
+    def curr_block(self) -> BlockReceived:
+        if self.current_block is None:
+            raise RuntimeError("Error fetching current block when there isn't one.")
+        else:
+            return self.current_block
+
+    def reco_cb(self, entry: LogEntry, blockhash: str,
+                prefill_count: str, prefill_size: str,
+                mempool_count: str, mempool_size: str,
+                extra_count: str, extra_size: str,
+                missing_count: str, missing_size: str) -> None:
         block = self.blocks_received.get(blockhash, BlockReceived())
         block.time_reconstructed = entry.time()
 
@@ -70,6 +84,7 @@ class CBHandler:
         block.missing_size = int(missing_size)
 
         self.blocks_received[blockhash] = block
+        self.current_block = self.blocks_received[blockhash]
 
     # Relies on the assumption that blocks_received == blocks reconstructed,
     # which holds for our observation prefill receiver.
@@ -79,6 +94,17 @@ class CBHandler:
             if block.missing_count > 0:
                 count += 1
         return count
+
+    def prefill_rd_cb(self, entry: LogEntry,
+                      redundant_count: str, redundant_size: str,
+                      mempool_count: str, mempool_size: str,
+                      extrapool_count: str, extrapool_size: str) -> None:
+        self.curr_block().prefill_rd_count = int(redundant_count)
+        self.curr_block().prefill_rd_size = int(redundant_size)
+        self.curr_block().prefill_rd_from_mempool_count = int(mempool_count)
+        self.curr_block().prefill_rd_from_mempool_size = int(mempool_size)
+        self.curr_block().prefill_rd_from_extrapool_count = int(extrapool_count)
+        self.curr_block().prefill_rd_from_extrapool_size = int(extrapool_size)
 
 
 if __name__ == "__main__":
@@ -94,7 +120,7 @@ if __name__ == "__main__":
         start_date = parse_datetime(sys.argv[3])
         end_date = parse_datetime(sys.argv[4])
 
-    handler = CBHandler()
+    cb_handler = CBHandler()
     # todo, the db should really be an index of db's generating itself based on
     # the logfile, but hmm sometimes commit is unknown in the startup version
     # message...
@@ -104,17 +130,34 @@ if __name__ == "__main__":
     patterns = [
         db.msg_cb(
             search="Successfully reconstructed block",
-            callback=handler.reco_callback
+            callback=cb_handler.reco_cb
+        ),
+        db.msg_cb(
+            search=".* txn .* of the prefill were redundant, ",
+            callback=cb_handler.prefill_rd_cb
         ),
     ]
 
     isolate(Path(sys.argv[1]), patterns, start_date, end_date)
 
-    missing = handler.blocks_missing_count()
-    total = len(handler.blocks_received)
+    missing = cb_handler.blocks_missing_count()
+    total_blocks = len(cb_handler.blocks_received)
 
-    success = total - missing
+    success = total_blocks - missing
 
-    reco_pct = (success / total) * 100
+    reco_pct = (success / total_blocks) * 100
 
-    print(f"{success}/{total} ({reco_pct:.2f}%) succeeded reconstruction without needing a GETBLOCKTXN roundtrip.")
+    print(f"{success}/{total_blocks} ({reco_pct:.2f}%) succeeded reconstruction without needing a GETBLOCKTXN roundtrip.")
+
+    prefill_size_total = sum(block.prefill_size for block in cb_handler.blocks_received.values())
+    prefill_per_block = prefill_size_total / total_blocks
+
+    prefilled_block_count = sum(1 for block in cb_handler.blocks_received.values() if block.prefill_size > 0)
+    prefilled_block_pct = (prefilled_block_count / total_blocks) * 100
+
+    print(f"{prefilled_block_count}/{total_blocks} ({prefilled_block_pct:.2f}%) of blocks were prefilled. Average prefill per block received: {prefill_per_block} bytes.")
+
+    prefill_rd_total = sum(block.prefill_rd_size for block in cb_handler.blocks_received.values())
+    redundant_pct = (prefill_rd_total / prefill_size_total) * 100
+    redundant_per_block = prefill_rd_total / total_blocks
+    print(f"{redundant_pct}% of bytes received in prefills were redundant.")
