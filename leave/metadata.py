@@ -101,8 +101,8 @@ class LogEntry:
 
     def __init__(self, line: str, eager: bool = True):
         self.full_line = line
-        self.body = ""
         self.metadata = self.Metadata()
+        self.time_str, self.metadata_str, self.body_str = self.split_logline(line)
         if eager:
             self.process_line_metadata()
 
@@ -134,13 +134,8 @@ class LogEntry:
 
         return self.metadata.time
 
-
     # The whole burger's here, this is needed in order to split the body from
     # metadata.
-    # todo: don't process all metadata up-front, we need more granular ways to
-    # inquire about metadata, so that we can return early if e.g. we're
-    # filtering on category, just find a category and return, leave other
-    # fields unpopulated.
     def process_line_metadata(self):
         thread = None
         file = None
@@ -150,10 +145,9 @@ class LogEntry:
         category = None
         wallet_name = None
 
-        _, metadata_str, body_str = self.split_logline(self.full_line)
-        self.body = body_str
+        self.time_str, self.metadata_str, self.body_str = self.split_logline(self.full_line)
 
-        matches = BRACKET_PATTERN.findall(metadata_str)
+        matches = BRACKET_PATTERN.findall(self.metadata_str)
         # some lines.. some lines just don't have any metadata
         if not matches:
             self.metadata = self.Metadata(time=self.time())

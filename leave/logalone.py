@@ -26,7 +26,7 @@ def isolate(logfile: Path, logpatterns: list[LogPattern],
             break
 
         for regex, pattern in compiled_patterns:
-            match = regex.search(line)
+            match = regex.search(entry.body_str)
             if match:
                 entry.process_line_metadata()
                 pattern.callback(entry, **match.groupdict())

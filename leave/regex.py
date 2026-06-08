@@ -1,5 +1,6 @@
 import re
 
+
 def regex_add_names(pattern: str, names: list[str]) -> re.Pattern:
     """
     Takes a regex and adds a list of names for all of the '(.*)' matches
