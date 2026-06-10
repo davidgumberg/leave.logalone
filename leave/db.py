@@ -326,7 +326,7 @@ class LogDB:
             data = json.load(f)
             self.log_messages = [LogMessage(**msg_dict) for msg_dict in data]
 
-    def msg_cb(self, search: str, callback: LogPatternCallback) -> LogPattern:
+    def msg_cb(self, search: str, callback: LogPatternCallback, missing_ok: bool = False) -> LogPattern:
         if not inspect.ismethod(callback):
             raise ValueError(f"Callback {callback} must be bound to an instance.")
 
@@ -338,7 +338,8 @@ class LogDB:
             if r.match(msg.fmt) or r.match(msg.regex):
                 named_grouped_r = regex_add_names(msg.regex, argnames)
                 return LogPattern(named_grouped_r, fmt_to_regex(msg.fmt, grouped=False), callback)
-        raise Exception(f"Pattern {search} not found in db!!!")
+        if not missing_ok:
+            raise Exception(f"Pattern {search} not found in db!!!")
 
 
 def CreateLogDBForHash(path: Path, hash: str) -> LogDB:
