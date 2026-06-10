@@ -2,6 +2,7 @@ import inspect
 import json
 import os
 import re
+import tempfile
 import traceback
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -343,8 +344,16 @@ class LogDB:
 
 
 def CreateLogDBForHash(path: Path, hash: str) -> LogDB:
-    tmpdir = get_commit_tmpdir(path, hash)
-    gen_compile_commands(tmpdir.name)
     db = LogDB()
-    db.parse(tmpdir.name)
+    db_path = Path(tempfile.gettempdir()) / "leave.logalone" / f"{hash}.json"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    if db_path.exists():
+        db.load_from_file(db_path)
+        return db
+    else:
+        tmpdir = get_commit_tmpdir(path, hash)
+        gen_compile_commands(tmpdir.name)
+        db.parse(tmpdir.name)
+        db.dump_to_file(db_path)
+
     return db
