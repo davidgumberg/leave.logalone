@@ -336,7 +336,7 @@ class LogDB:
 
         r = re.compile(search)
         for msg in self.log_messages:
-            if r.match(msg.fmt) or r.match(msg.regex):
+            if r.search(msg.fmt) or r.search(msg.regex):
                 named_grouped_r = regex_add_names(msg.regex, argnames)
                 return LogPattern(named_grouped_r, fmt_to_regex(msg.fmt, grouped=False), callback)
         if not missing_ok:
