@@ -53,6 +53,7 @@ class BlockSent:
 
     prefilled: Optional[bool] = None
 
+    prefill_desired: Optional[bool] = None
     prefilled_cb_size: Optional[int] = None
     prefilled_cb_windows: Optional[int] = None
     nonprefilled_cb_size: Optional[int] = None
@@ -62,13 +63,10 @@ class BlockSent:
     tcp_window_avail: Optional[int] = None
 
 
-class CBHandler:
+class ReceiveHandler:
     def __init__(self):
-        self.blocks_sent: list[BlockSent] = []
         self.blocks_received: list[BlockReceived] = []
-
         self.curr_cb_received: Optional[BlockReceived] = None
-        self.curr_cb_sent: Optional[BlockSent] = None
 
     def blocks_reconstructed(self) -> list[BlockReceived]:
         return [
@@ -112,7 +110,7 @@ class CBHandler:
         elif self.curr_cb_received.blockhash != blockhash:
             print(
                 f"Oops, that's weird, {blockhash} does not match the current CB's"
-                f"blockash of {self.curr_cb_received.blockhash}"
+                f"blockhash of {self.curr_cb_received.blockhash}"
             )
         self.curr_cb_received.time_reconstructed = entry.time()
 
@@ -128,13 +126,6 @@ class CBHandler:
         self.curr_cb_received.missing_count = int(missing_count)
         self.curr_cb_received.missing_size = int(missing_size)
 
-    def blocks_missing_count(self) -> int:
-        count = 0
-        for block in self.blocks_reconstructed():
-            if block.missing_count > 0:
-                count += 1
-        return count
-
     def prefill_rd_cb(self, entry: LogEntry,
                       redundant_count: str, redundant_size: str,
                       mempool_count: str, mempool_size: str,
@@ -149,6 +140,12 @@ class CBHandler:
         self.curr_cb_received.prefill_rd_from_extrapool_count = int(extrapool_count)
         self.curr_cb_received.prefill_rd_from_extrapool_size = int(extrapool_size)
 
+
+class SendHandler:
+    def __init__(self):
+        self.blocks_sent: list[BlockSent] = []
+        self.curr_cb_sent: Optional[BlockSent] = None
+
     def tcp_window_cb(self, entry: LogEntry,
                       prefilled_size: str, prefilled_windows_used: str,
                       nonprefilled_size: str, nonprefilled_windows_used: str,
@@ -156,6 +153,10 @@ class CBHandler:
         if self.curr_cb_sent is None:
             self.curr_cb_sent = BlockSent()
             self.blocks_sent.append(self.curr_cb_sent)
+
+        # This is a hack that exploits the fact that in current code this
+        # message is only logged when prefill is desired.
+        self.curr_cb_sent.prefill_desired = True
         self.curr_cb_sent.prefilled_cb_size = int(prefilled_size)
         self.curr_cb_sent.prefilled_cb_windows = int(prefilled_windows_used)
         self.curr_cb_sent.nonprefilled_cb_size = int(nonprefilled_size)
@@ -168,11 +169,10 @@ class CBHandler:
 
         if self.curr_cb_sent is None:
             self.curr_cb_sent = BlockSent()
-            # not strictly true since this metric usually includes overhead,
-            # but close enough and making them equal lets us extract out the
-            # blocks that have 0 intended prefill.
+            # not strictly true since this metric usually includes overhead
             self.curr_cb_sent.prefilled_cb_size = size
             self.curr_cb_sent.nonprefilled_cb_size = size
+            self.curr_cb_sent.prefill_desired = False
             self.blocks_sent.append(self.curr_cb_sent)
 
         if is_prefilled == "prefilled":
@@ -207,7 +207,8 @@ if __name__ == "__main__":
         start_date = parse_datetime(sys.argv[3])
         end_date = parse_datetime(sys.argv[4])
 
-    cb_handler = CBHandler()
+    receive_handler = ReceiveHandler()
+    send_handler = SendHandler()
     # todo, the db should really be an index of db's generating itself based on
     # the logfile, but hmm sometimes commit is unknown in the startup version
     # message...
@@ -217,25 +218,25 @@ if __name__ == "__main__":
         # receiving
         (
             "received: %s \\(%u bytes\\)",
-            cb_handler.net_receive_cb,
+            receive_handler.net_receive_cb,
             False,
             "received: cmpctblock",
         ),
         (
             "Initializing PartiallyDownloadedBlock",
-            cb_handler.init_cb,
+            receive_handler.init_cb,
             False,
             "",
         ),
         (
             "Successfully reconstructed block",
-            cb_handler.reco_cb,
+            receive_handler.reco_cb,
             False,
             "",
         ),
         (
             ".* txn .* of the prefill were redundant, ",
-            cb_handler.prefill_rd_cb,
+            receive_handler.prefill_rd_cb,
             False,
             "",
         ),
@@ -243,19 +244,19 @@ if __name__ == "__main__":
         # sending
         (
             "Prefilled CB.*TCP windows",
-            cb_handler.tcp_window_cb,
+            send_handler.tcp_window_cb,
             True,
             "",
         ),
         (
             "Sending %s CMPCTBLOCK of size",
-            cb_handler.sending_cb,
+            send_handler.sending_cb,
             True,
             "",
         ),
         (
             "sending header-and-ids",
-            cb_handler.header_and_ids_cb,
+            send_handler.header_and_ids_cb,
             False,
             "",
         ),
@@ -268,49 +269,84 @@ if __name__ == "__main__":
 
     isolate(Path(sys.argv[1]), logpatterns, start_date, end_date)
 
-    blocks_missing_tx = [block for block in cb_handler.blocks_received if block.missing_count > 0]
-    total_blocks = len(cb_handler.blocks_reconstructed())
+    blocks_missing_tx = [block for block in receive_handler.blocks_received if block.missing_count > 0]
+    total_blocks = len(receive_handler.blocks_reconstructed())
 
     success = total_blocks - len(blocks_missing_tx)
 
     reco_pct = (success / total_blocks) * 100
 
-    print(f"{success}/{total_blocks} ({reco_pct:.2f}%) succeeded reconstruction without needing a GETBLOCKTXN roundtrip.")
+    print(f"{success}/{total_blocks} ({reco_pct:.2f}%) succeeded "
+          f"reconstruction without needing a GETBLOCKTXN roundtrip.")
 
-    prefill_size_total = sum(block.prefill_size for block in cb_handler.blocks_reconstructed())
+    prefill_size_total = sum(block.prefill_size for block in receive_handler.blocks_reconstructed())
     prefill_per_block = prefill_size_total / total_blocks
 
-    prefilled_blocks = [block for block in cb_handler.blocks_reconstructed() if block.prefill_count > 1]
-    prefilled_block_pct = (len(prefilled_blocks) / total_blocks) * 100
+    received_prefilled_blocks = [block for block in receive_handler.blocks_reconstructed() if block.prefill_count > 1]
+    prefilled_block_pct = (len(received_prefilled_blocks) / total_blocks) * 100
 
-    print(f"{len(prefilled_blocks)}/{total_blocks} ({prefilled_block_pct:.2f}%) of blocks received were prefilled. Average prefill per block received: {prefill_per_block:.1f} bytes.")
+    print(f"{len(received_prefilled_blocks)}/{total_blocks} "
+          f"({prefilled_block_pct:.2f}%) of blocks received were prefilled with "
+          f"more than just the coinbase. Average prefill size (incl. "
+          f"coinbase): {prefill_per_block:.1f} bytes / block.")
 
-    if len(prefilled_blocks) > 0:
-        prefilled_and_missing = [block for block in prefilled_blocks if block.missing_count > 0]
-        prefilled_and_missing_pct = (len(prefilled_and_missing) / len(prefilled_blocks)) * 100
-        print(f"{len(prefilled_and_missing)}/{len(prefilled_blocks)} "
+    if len(received_prefilled_blocks) > 0:
+        prefilled_and_missing = [block for block in received_prefilled_blocks if block.missing_count > 0]
+        prefilled_and_missing_pct = (len(prefilled_and_missing) / len(received_prefilled_blocks)) * 100
+        print(f"{len(prefilled_and_missing)}/{len(received_prefilled_blocks)} "
               f"({prefilled_and_missing_pct:.2f}%) of prefilled blocks received "
               f"needed a GETBLOCKTXN roundtrip.")
 
-        prefill_rd_total = sum(block.prefill_rd_size for block in cb_handler.blocks_received)
+        prefill_rd_total = sum(block.prefill_rd_size for block in receive_handler.blocks_received)
         redundant_pct = (prefill_rd_total / prefill_size_total) * 100
         redundant_per_block = prefill_rd_total / total_blocks
         print(f"{redundant_pct:.2f}% of bytes received in prefills were redundant.")
-        print(f"Avg redundant prefill: {redundant_per_block} bytes/block")
+        print(f"Avg redundant prefill: {redundant_per_block:.2f} bytes/block")
 
         if (prefill_rd_total):
-            prefill_rd_mp_total_size = sum(block.prefill_rd_from_mempool_size for block in cb_handler.blocks_received)
+            prefill_rd_mp_total_size = sum(block.prefill_rd_from_mempool_size for block in receive_handler.blocks_received)
             rd_mp_pct = (prefill_rd_mp_total_size / prefill_rd_total) * 100
             print(f"{rd_mp_pct:.2f}% of redundant prefill bytes already in mempool.")
 
-            prefill_rd_ep_total_size = sum(block.prefill_rd_from_extrapool_size for block in cb_handler.blocks_received)
+            prefill_rd_ep_total_size = sum(block.prefill_rd_from_extrapool_size for block in receive_handler.blocks_received)
             rd_ep_pct = (prefill_rd_ep_total_size / prefill_rd_total) * 100
             print(f"{rd_ep_pct:.2f}% of redundant prefill bytes already in extrapool.")
 
-    sent_total_count = len(cb_handler.blocks_sent)
-    sent_prefilled = [block for block in cb_handler.blocks_sent if block.prefilled is True]
+    sent_total_count = len(send_handler.blocks_sent)
+    sent_prefilled = [block for block in send_handler.blocks_sent if block.prefilled is True]
     if sent_total_count > 0:
         sent_prefilled_pct = (len(sent_prefilled) / sent_total_count) * 100
-        print(f"{len(sent_prefilled)}/{sent_total_count} ({sent_prefilled_pct:.2f}%) of blocks sent were prefilled.")
+        print(f"{len(sent_prefilled)}/{sent_total_count} ({sent_prefilled_pct:.2f}%) of all blocks sent were prefilled.")
+        prefill_desired = [
+            sent for sent in send_handler.blocks_sent
+            if sent.prefill_desired is True
+        ]
+        prefill_not_desired = [
+            sent for sent in send_handler.blocks_sent
+            if sent.prefill_desired is not None and sent.prefill_desired is False
+        ]
+        prefill_not_applicable = [
+            sent for sent in send_handler.blocks_sent
+            if sent.prefill_desired is None
+        ]
+        prefill_not_desired_pct = (len(prefill_not_desired) / sent_total_count) * 100
+        print(f"{len(prefill_not_desired)} / {sent_total_count} "
+              f"({prefill_not_desired_pct:.2f}%) of blocks sent had no prefill "
+              f"desired.")
+
+        prefill_desired_pct = (len(prefill_desired) / sent_total_count) * 100
+        print(f"{len(prefill_desired)} / {sent_total_count} "
+              f"({prefill_desired_pct:.2f}%) of blocks sent had a prefill "
+              f"desired.")
+
+        prefill_na_pct = (len(prefill_not_applicable) / sent_total_count) * 100
+        print(f"{len(prefill_not_applicable)} / {sent_total_count} "
+              f"({prefill_na_pct:.2f}%) of blocks sent prefilling was not "
+              f"applicable. (blocks below tip)")
+
+        prefill_desired_sent_pct = (len(sent_prefilled) / len(prefill_desired))
+        print(f"{len(sent_prefilled)} / {len(prefill_desired)} "
+              f"({prefill_desired_sent_pct:.2f}%) of blocks where prefill was"
+              f"desired it was also sent.")
 
 
