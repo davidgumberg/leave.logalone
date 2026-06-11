@@ -62,6 +62,15 @@ class BlockSent:
     tcp_window_total: Optional[int] = None
     tcp_window_avail: Optional[int] = None
 
+    @property
+    def prefill_size(self) -> Optional[int]:
+        if (
+            self.prefilled_cb_size is not None and
+            self.nonprefilled_cb_size is not None
+        ):
+            return self.prefilled_cb_size - self.nonprefilled_cb_size
+        return None
+
 
 class ReceiveHandler:
     def __init__(self):
@@ -287,7 +296,7 @@ if __name__ == "__main__":
 
     print(f"{len(received_prefilled_blocks)}/{total_blocks} "
           f"({prefilled_block_pct:.2f}%) of blocks received were prefilled with "
-          f"more than just the coinbase. Average prefill size (incl. "
+          f"more than just the coinbase. Average prefill received (incl. "
           f"coinbase): {prefill_per_block:.1f} bytes / block.")
 
     if len(received_prefilled_blocks) > 0:
@@ -348,5 +357,6 @@ if __name__ == "__main__":
         print(f"{len(sent_prefilled)} / {len(prefill_desired)} "
               f"({prefill_desired_sent_pct:.2f}%) of blocks where prefill was"
               f"desired it was also sent.")
+
 
 
