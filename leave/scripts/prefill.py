@@ -3,6 +3,7 @@ import sys
 from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
+from statistics import median, mean
 from typing import Optional
 
 
@@ -296,7 +297,7 @@ if __name__ == "__main__":
 
     print(f"{len(received_prefilled_blocks)}/{total_blocks} "
           f"({prefilled_block_pct:.2f}%) of blocks received were prefilled with "
-          f"more than just the coinbase. Average prefill received (incl. "
+          f"more than just the coinbase. Mean prefill received (incl. "
           f"coinbase): {prefill_per_block:.1f} bytes / block.")
 
     if len(received_prefilled_blocks) > 0:
@@ -310,7 +311,7 @@ if __name__ == "__main__":
         redundant_pct = (prefill_rd_total / prefill_size_total) * 100
         redundant_per_block = prefill_rd_total / total_blocks
         print(f"{redundant_pct:.2f}% of bytes received in prefills were redundant.")
-        print(f"Avg redundant prefill: {redundant_per_block:.2f} bytes/block")
+        print(f"Mean redundant prefill: {redundant_per_block:.2f} bytes/block")
 
         if (prefill_rd_total):
             prefill_rd_mp_total_size = sum(block.prefill_rd_from_mempool_size for block in receive_handler.blocks_received)
@@ -358,5 +359,7 @@ if __name__ == "__main__":
               f"({prefill_desired_sent_pct:.2f}%) of blocks where prefill was"
               f"desired it was also sent.")
 
-
-
+        prefill_avail = [sent.tcp_window_avail for sent in sent_prefilled if sent.tcp_window_avail is not None]
+        print(f"TCP Window available bytes; median: {median(prefill_avail):.0f}, mean: {mean(prefill_avail):.2f}")
+        prefill_size = [sent.prefill_size for sent in sent_prefilled if sent.prefill_size is not None]
+        print(f"Prefill size in bytes; median: {median(prefill_size):.0f}, mean: {mean(prefill_size):.2f}")
