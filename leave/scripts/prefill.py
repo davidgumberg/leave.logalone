@@ -169,15 +169,19 @@ class SendHandler:
             self.curr_cb_sent = BlockSent()
             self.blocks_sent.append(self.curr_cb_sent)
 
-        # This is a hack that exploits the fact that in current code this
-        # message is only logged when prefill is desired.
-        self.curr_cb_sent.prefill_desired = True
+        if int(prefilled_size) > int(nonprefilled_size):
+            self.curr_cb_sent.prefill_desired = True
+        else:
+            self.curr_cb_sent.prefill_desired = False
+            self.curr_cb_sent.prefilled = False
+
         self.curr_cb_sent.prefilled_cb_size = int(prefilled_size)
         self.curr_cb_sent.prefilled_cb_windows = int(prefilled_windows_used)
         self.curr_cb_sent.nonprefilled_cb_size = int(nonprefilled_size)
         self.curr_cb_sent.nonprefilled_cb_windows = int(nonprefilled_windows_used)
         self.curr_cb_sent.tcp_window_total = int(window_total)
         self.curr_cb_sent.tcp_window_avail = int(window_available)
+
 
     def sending_cb(self, entry: LogEntry, is_prefilled: str, size_str: str) -> None:
         size: int = int(size_str)
@@ -190,13 +194,14 @@ class SendHandler:
             self.curr_cb_sent.prefill_desired = False
             self.blocks_sent.append(self.curr_cb_sent)
 
-        if is_prefilled == "prefilled":
-            self.curr_cb_sent.prefilled = True
-        elif is_prefilled == "not-prefilled":
-            self.curr_cb_sent.prefilled = False
-        else:
-            raise RuntimeError(f"Error processing: {entry.full_line}, unexpected is_prefilled value of `{is_prefilled}`")
-        self.curr_cb_sent.send_size = size
+        if self.curr_cb_sent.prefilled is None:
+            if is_prefilled == "prefilled":
+                self.curr_cb_sent.prefilled = True
+            elif is_prefilled == "not-prefilled":
+                self.curr_cb_sent.prefilled = False
+            else:
+                raise RuntimeError(f"Error processing: {entry.full_line}, unexpected is_prefilled value of `{is_prefilled}`")
+            self.curr_cb_sent.send_size = size
 
     def header_and_ids_cb(self, entry: LogEntry, funcname: str, blockhash: str, peer_id: str) -> None:
         if self.curr_cb_sent is None:
