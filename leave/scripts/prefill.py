@@ -63,6 +63,10 @@ class BlockSent:
     tcp_window_total: Optional[int] = None
     tcp_window_avail: Optional[int] = None
 
+    peer_gbt: bool = False
+    peer_gbt_count: Optional[int] = None
+    peer_gbt_size: Optional[int] = None
+
     @property
     def prefill_size(self) -> Optional[int]:
         if (
@@ -122,6 +126,7 @@ class ReceiveHandler:
                 f"Oops, that's weird, {blockhash} does not match the current CB's"
                 f"blockhash of {self.curr_cb_received.blockhash}"
             )
+            return
         self.curr_cb_received.time_reconstructed = entry.time()
 
         self.curr_cb_received.prefill_count = int(prefill_count)
@@ -203,6 +208,16 @@ class SendHandler:
         self.curr_cb_sent.time_sent = entry.time()
         self.curr_cb_sent = None
 
+    def getblocktxn_received(self, entry: LogEntry, peer_id: str, blockhash:str, gbt_count: str, gbt_size: str) -> None:
+        for block in self.blocks_sent:
+            if block.peer_id == int(peer_id) and block.blockhash == blockhash:
+                block.peer_gbt = True
+                block.peer_gbt_count = int(gbt_count)
+                block.peer_gbt_size = int(gbt_size)
+                return
+
+        # print(f"Warning: GBT received for a block we don't know about!: {entry.full_line}!")
+
 
 if __name__ == "__main__":
     if len(sys.argv) not in [3, 5]:
@@ -270,6 +285,12 @@ if __name__ == "__main__":
             False,
             "",
         ),
+        (
+            "Peer.*sent us a GETBLOCKTXN",
+            send_handler.getblocktxn_received,
+            True,
+            "",
+        ),
     ]
 
     logpatterns = [
@@ -323,10 +344,20 @@ if __name__ == "__main__":
             print(f"{rd_ep_pct:.2f}% of redundant prefill bytes already in extrapool.")
 
     sent_total_count = len(send_handler.blocks_sent)
-    sent_prefilled = [block for block in send_handler.blocks_sent if block.prefilled is True]
+    prefill_sent = [block for block in send_handler.blocks_sent if block.prefilled is True]
     if sent_total_count > 0:
-        sent_prefilled_pct = (len(sent_prefilled) / sent_total_count) * 100
-        print(f"{len(sent_prefilled)}/{sent_total_count} ({sent_prefilled_pct:.2f}%) of all blocks sent were prefilled.")
+        sent_prefilled_pct = (len(prefill_sent) / sent_total_count) * 100
+        print(f"{len(prefill_sent)}/{sent_total_count} ({sent_prefilled_pct:.2f}%) of all blocks sent were prefilled.")
+
+        sent_gbt_rq = [block for block in send_handler.blocks_sent if block.peer_gbt is True]
+        prefilled_gbt_pct = (len(sent_gbt_rq) / sent_total_count) * 100
+        print(f"{len(sent_gbt_rq)}/{sent_total_count} ({prefilled_gbt_pct:.2f}%) of all blocks sent we received a GETBLOCKTXN for.")
+
+        prefilled_gbt_rq = [block for block in prefill_sent if block.peer_gbt is True]
+        prefilled_gbt_pct = (len(prefilled_gbt_rq) / len(prefill_sent)) * 100
+        print(f"{len(prefilled_gbt_rq)}/{len(prefill_sent)} ({prefilled_gbt_pct:.2f}%) of prefilled blocks sent we received a GETBLOCKTXN for.")
+
+    if len(prefill_sent) > 0:
         prefill_desired = [
             sent for sent in send_handler.blocks_sent
             if sent.prefill_desired is True
@@ -354,12 +385,12 @@ if __name__ == "__main__":
               f"({prefill_na_pct:.2f}%) of blocks sent prefilling was not "
               f"applicable. (blocks below tip)")
 
-        prefill_desired_sent_pct = (len(sent_prefilled) / len(prefill_desired))
-        print(f"{len(sent_prefilled)} / {len(prefill_desired)} "
-              f"({prefill_desired_sent_pct:.2f}%) of blocks where prefill was"
+        prefill_desired_sent_pct = (len(prefill_sent) / len(prefill_desired)) * 100
+        print(f"{len(prefill_desired)} / {len(prefill_sent)} "
+              f"({prefill_desired_sent_pct:.2f}%) of blocks where prefill was "
               f"desired it was also sent.")
 
-        prefill_avail = [sent.tcp_window_avail for sent in sent_prefilled if sent.tcp_window_avail is not None]
+        prefill_avail = [sent.tcp_window_avail for sent in prefill_sent if sent.tcp_window_avail is not None]
         print(f"TCP Window available bytes; median: {median(prefill_avail):.0f}, mean: {mean(prefill_avail):.2f}")
-        prefill_size = [sent.prefill_size for sent in sent_prefilled if sent.prefill_size is not None]
+        prefill_size = [sent.prefill_size for sent in prefill_sent if sent.prefill_size is not None]
         print(f"Prefill size in bytes; median: {median(prefill_size):.0f}, mean: {mean(prefill_size):.2f}")
