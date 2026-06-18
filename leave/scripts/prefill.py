@@ -333,19 +333,22 @@ if __name__ == "__main__":
               f"({prefilled_and_missing_pct:.2f}%) of prefilled blocks received "
               f"needed a GETBLOCKTXN roundtrip.")
 
-        prefill_rd_total = sum(block.prefill_rd_size for block in receive_handler.blocks_received)
-        redundant_pct = (prefill_rd_total / prefill_size_total) * 100
-        redundant_per_block = prefill_rd_total / total_blocks
+        prefill_rd_total_size = sum(block.prefill_rd_size for block in receive_handler.blocks_received)
+        prefill_rd_total_count = sum(block.prefill_rd_count for block in receive_handler.blocks_received)
+        redundant_pct = (prefill_rd_total_size / prefill_size_total) * 100
         print(f"{redundant_pct:.2f}% of bytes received in prefills were redundant.")
+        redundant_per_block = prefill_rd_total_size / total_blocks
         print(f"Mean redundant prefill: {redundant_per_block:.2f} bytes/block")
+        redundant_per_block_with_shortid_factor = (prefill_rd_total_size - (prefill_rd_total_count * 6)) / total_blocks
+        print(f"Mean redundant prefill w/ shortid factor: {redundant_per_block_with_shortid_factor:.2f} bytes/block")
 
-        if (prefill_rd_total):
+        if (prefill_rd_total_size):
             prefill_rd_mp_total_size = sum(block.prefill_rd_from_mempool_size for block in receive_handler.blocks_received)
-            rd_mp_pct = (prefill_rd_mp_total_size / prefill_rd_total) * 100
+            rd_mp_pct = (prefill_rd_mp_total_size / prefill_rd_total_size) * 100
             print(f"{rd_mp_pct:.2f}% of redundant prefill bytes already in mempool.")
 
             prefill_rd_ep_total_size = sum(block.prefill_rd_from_extrapool_size for block in receive_handler.blocks_received)
-            rd_ep_pct = (prefill_rd_ep_total_size / prefill_rd_total) * 100
+            rd_ep_pct = (prefill_rd_ep_total_size / prefill_rd_total_size) * 100
             print(f"{rd_ep_pct:.2f}% of redundant prefill bytes already in extrapool.")
 
     sent_total_count = len(send_handler.blocks_sent)
